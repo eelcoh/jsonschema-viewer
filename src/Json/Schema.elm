@@ -105,13 +105,13 @@ object title description properties required minProperties maxProperties example
 
 type alias ArraySchema =
     BaseSchema
-        { items : List Schema
+        { items : Maybe Schema
         , minItems : Maybe Int
         , maxItems : Maybe Int
         }
 
 
-array : Maybe String -> Maybe String -> List Schema -> Maybe Int -> Maybe Int -> List Encode.Value -> Schema
+array : Maybe String -> Maybe String -> Maybe Schema -> Maybe Int -> Maybe Int -> List Encode.Value -> Schema
 array title description items minItems maxItems examples =
     Array
         { title = title
@@ -282,3 +282,44 @@ type StringFormat
     | Ipv6
     | Uri
     | Custom String
+
+
+getName : Schema -> Maybe String
+getName schema =
+    case schema of
+        Object { title } ->
+            title
+
+        Array { title } ->
+            title
+
+        String { title } ->
+            title
+
+        Integer { title } ->
+            title
+
+        Number { title } ->
+            title
+
+        Boolean { title } ->
+            title
+
+        Null { title } ->
+            title
+
+        Ref { title } ->
+            title
+
+        OneOf { title } ->
+            title
+
+        AnyOf { title } ->
+            title
+
+        AllOf { title } ->
+            title
+
+        -- | Lazy (()  {name} -> name
+        Fallback _ ->
+            Nothing

@@ -1,18 +1,18 @@
-module Main exposing (Model, Msg(..), main, swagger, update, view, viewDefinitions, viewSchema, viewSpec)
+module Main exposing (Model, Msg(..), init, main, swagger, update, view, viewDefinitions, viewSchema, viewSpec)
 
 --import JsonSchema.Model exposing (Schema(..))
 
 import Browser
 import Dict
 import Html exposing (Html, div, text)
-import Html.Attributes exposing (style)
 import Json.Decode exposing (decodeString)
 import Json.Schema exposing (Definitions, Schema)
-import JsonSchema exposing (decoder)
-import Render
+import Json.Schema.Decode exposing (decoder)
+import Render.Svg as Render
 
 
 
+-- import Render
 -- import Swagger2 as Swagger exposing (Location(..), Parameter(..), Verb(..), decoder)
 
 
@@ -21,7 +21,7 @@ type Msg
 
 
 type alias Model =
-    Result String Json.Schema.Model
+    Result Json.Decode.Error Json.Schema.Model
 
 
 update : Msg -> Model -> Model
@@ -35,7 +35,7 @@ view : Model -> Html Msg
 view model =
     case model of
         Err s ->
-            Html.div [] [ Html.text s ]
+            Html.div [] [ Html.text (Json.Decode.errorToString s) ]
 
         Ok spec ->
             viewSpec spec
@@ -67,7 +67,10 @@ viewDefinitions d =
 viewSchema : Definitions -> Schema -> Html Msg
 viewSchema defs schema =
     Html.div []
-        [ Render.viewSchema defs ( 0, 0 ) Nothing schema ]
+        -- [ Html.text "schema" ]
+        [ Html.h1 [] [ Html.text "Schema Ok!" ]
+        , Render.view defs schema
+        ]
 
 
 
@@ -75,7 +78,124 @@ viewSchema defs schema =
 
 
 main =
-    Browser.sandbox { model = decodeString decoder swagger, view = view, update = update }
+    Browser.sandbox { init = init, view = view, update = update }
+
+
+init : Model
+init =
+    decodeString decoder jsonschema
+
+
+jsonschema =
+    """
+{
+  "$id": "https://example.com/arrays.schema.json",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "description": "A representation of a person, company, organization, or place",
+  "type": "object",
+  "properties": {
+    "fruits": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "vegetables": {
+      "type": "array",
+      "items": { "$ref": "#/definitions/veggie" }
+    }
+  },
+  "definitions": {
+    "veggie": {
+      "type": "object",
+      "required": [ "veggieName", "veggieLike" ],
+      "properties": {
+        "veggieName": {
+          "type": "string",
+          "description": "The name of the vegetable."
+        },
+        "veggieLike": {
+          "type": "boolean",
+          "description": "Do I like this vegetable?"
+        }
+      }
+    }
+  }
+}
+"""
+
+
+jsonschema3 =
+    """
+{
+  "type": "object",
+  "title": "person",
+  "properties": {
+    "firstName": {
+      "type": "string",
+      "description": "The person's first name."
+    },
+    "lastName": {
+      "type": "string",
+      "description": "The person's last name."
+    },
+    "age": {
+      "description": "Age in years which must be equal to or greater than zero.",
+      "type": "integer",
+      "minimum": 0
+    },
+    "children": {
+      "description": "Children.",
+      "type": "array",
+      "minItems": 0,
+      "items": {
+        "type": "object",
+        "properties": {
+          "firstName": {
+            "type": "string",
+            "description": "The person's first name."
+          },
+          "lastName": {
+            "type": "string",
+            "description": "The person's last name."
+          },
+          "age": {
+            "description": "Age in years which must be equal to or greater than zero.",
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      }
+    }
+  }
+}
+    """
+
+
+jsonschema1 =
+    """
+{
+  "$id": "https://example.com/person.schema.json",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Person",
+  "type": "object",
+  "properties": {
+    "firstName": {
+      "type": "string",
+      "description": "The person's first name."
+    },
+    "lastName": {
+      "type": "string",
+      "description": "The person's last name."
+    },
+    "age": {
+      "description": "Age in years which must be equal to or greater than zero.",
+      "type": "integer",
+      "minimum": 0
+    }
+  }
+}
+    """
 
 
 swagger : String

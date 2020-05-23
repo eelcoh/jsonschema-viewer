@@ -1,14 +1,13 @@
-module Render exposing (Coordinates, Dimensions, Icon(..), Name, color, computeHorizontalText, computeTextHeight, computeTextWidth, computeVerticalText, darkClr, iconGeneric, iconGraph, iconRect, lightClr, pillHeight, roundRect, separatorGraph, toSvgCoordsTuple, viewAnonymousSchema, viewBodyParams, viewBool, viewElms, viewElms_, viewFile, viewFloat, viewInteger, viewMaybeTitle, viewMulti, viewNameGraph, viewPathParams, viewProperty, viewResponse, viewResponses, viewSchema, viewString, ySpace)
+module Render.Svg exposing (view)
 
 import Color exposing (gray)
 import Color.Convert
 import Dict
 import Html exposing (text)
-import Json.Schema as Schema
-import JsonSchema
-import List.Extra
+import Json.Schema as Schema exposing (Definitions, Schema)
 import Svg exposing (Svg)
 import Svg.Attributes as SvgA exposing (refY)
+import Svg.Lazy exposing (lazy)
 
 
 
@@ -31,45 +30,118 @@ pillHeight =
     28
 
 
-viewElms :
-    (Schema.Definitions -> Coordinates -> a -> ( Svg msg, Dimensions ))
-    -> Schema.Definitions
+view : Definitions -> Schema -> Html.Html msg
+view defs schema =
+    let
+        schemaView =
+            Tuple.first <| viewSchema defs ( 0, 0 ) Nothing (Debug.log "schema " schema)
+    in
+    Svg.svg
+        [ SvgA.width "520"
+        , SvgA.height "520"
+        , SvgA.viewBox "0 0 520 520"
+        ]
+        [ schemaView ]
+
+
+viewProperties :
+    Definitions
     -> Coordinates
-    -> List a
+    -> List Schema.ObjectProperty
     -> ( List (Svg msg), Coordinates )
-viewElms fn defs coords elms =
+viewProperties defs coords props =
     let
         ( g, ( _, h ), w ) =
-            viewElms_ fn defs coords elms
+            viewProps coords props
+
+        viewProps (( x, y ) as coords_) elms =
+            case elms of
+                [] ->
+                    ( [], coords_, x )
+
+                element :: elements ->
+                    let
+                        ( g_, ( w1, h1 ) ) =
+                            viewProperty defs coords_ element
+
+                        ( gs, ( w2, h2 ), w3 ) =
+                            viewProps ( x, h1 + 10 ) elements
+
+                        maxW =
+                            List.foldl Basics.max w1 [ w1, w2, w3 ]
+                    in
+                    ( g_ :: gs, ( x, h2 ), maxW )
     in
     ( g, ( w, h ) )
 
 
-viewElms_ :
-    (Schema.Definitions -> Coordinates -> a -> ( Svg msg, Dimensions ))
-    -> Schema.Definitions
+viewItems :
+    Definitions
     -> Coordinates
-    -> List a
-    -> ( List (Svg msg), Coordinates, Float )
-viewElms_ fn defs (( x, y ) as coords) elms =
-    case elms of
-        [] ->
-            ( [], coords, x )
+    -> List Schema
+    -> ( List (Svg msg), Coordinates )
+viewItems defs coords items =
+    let
+        ( g, ( _, h ), w ) =
+            viewItems_ coords items
 
-        element :: elements ->
-            let
-                ( g, ( w1, h1 ) ) =
-                    fn defs coords element
+        viewItems_ (( x, y ) as coords_) elms =
+            case elms of
+                [] ->
+                    ( [], coords_, x )
 
-                ( gs, ( w2, h2 ), w3 ) =
-                    viewElms_ fn defs ( x, h1 + 10 ) elements
+                element :: elements ->
+                    let
+                        ( g_, ( w1, h1 ) ) =
+                            viewArrayItem defs coords_ element
 
-                maxW =
-                    List.foldl Basics.max w1 [ w1, w2, w3 ]
-            in
-            ( g :: gs, ( x, h2 ), maxW )
+                        ( gs, ( w2, h2 ), w3 ) =
+                            viewItems_ ( x, h1 + 10 ) elements
+
+                        maxW =
+                            List.foldl Basics.max w1 [ w1, w2, w3 ]
+                    in
+                    ( g_ :: gs, ( x, h2 ), maxW )
+    in
+    ( g, ( w, h ) )
 
 
+
+-- viewElms :
+--     (Definitions -> Coordinates -> a -> ( Svg msg, Dimensions ))
+--     -> Definitions
+--     -> Coordinates
+--     -> List a
+--     -> ( List (Svg msg), Coordinates )
+-- viewElms fn defs coords elms =
+--     let
+--         ( g, ( _, h ), w ) =
+--             viewElms_ fn defs coords elms
+--     in
+--     ( g, ( w, h ) )
+-- viewElms_ :
+--     (Definitions -> Coordinates -> a -> ( Svg msg, Dimensions ))
+--     -> Definitions
+--     -> Coordinates
+--     -> List a
+--     -> ( List (Svg msg), Coordinates, Float )
+-- viewElms_ fn defs (( x, y ) as coords) elms =
+--     case elms of
+--         [] ->
+--             ( [], coords, x )
+--         element :: elements ->
+--             let
+--                 ( g, ( w1, h1 ) ) =
+--                     fn defs coords element
+--                 ( gs, ( w2, h2 ), w3 ) =
+--                     viewElms_ fn defs ( x, h1 + 10 ) elements
+--                 maxW =
+--                     List.foldl Basics.max w1 [ w1, w2, w3 ]
+--             in
+--             ( g :: gs, ( x, h2 ), maxW )
+
+
+toSvgCoordsTuple : ( List (Svg msg), Coordinates ) -> ( Svg msg, Coordinates )
 toSvgCoordsTuple ( a, b ) =
     ( Svg.g [] a, b )
 
@@ -78,12 +150,12 @@ type alias Name =
     String
 
 
-viewAnonymousSchema : Schema.Definitions -> Coordinates -> Schema.Schema -> ( Svg msg, Dimensions )
+viewAnonymousSchema : Definitions -> Coordinates -> Schema -> ( Svg msg, Dimensions )
 viewAnonymousSchema defs coords schema =
     viewSchema defs coords Nothing schema
 
 
-viewSchema : Schema.Definitions -> Coordinates -> Maybe Name -> Schema.Schema -> ( Svg msg, Dimensions )
+viewSchema : Definitions -> Coordinates -> Maybe Name -> Schema -> ( Svg msg, Dimensions )
 viewSchema defs (( x, y ) as coords) name schema =
     case schema of
         Schema.Object { title, properties } ->
@@ -96,7 +168,7 @@ viewSchema defs (( x, y ) as coords) name schema =
                     iconRect IObject name coords
 
                 ( propertiesGraphs, newCoords ) =
-                    viewElms viewProperty defs ( w + 10, y ) properties
+                    viewProperties defs ( w + 10, y ) properties
 
                 graphs =
                     objectGraph :: propertiesGraphs
@@ -114,10 +186,15 @@ viewSchema defs (( x, y ) as coords) name schema =
                     iconRect IList name coords
 
                 ( itemsGraphs, newCoords ) =
-                    viewElms viewArrayItem defs ( w + 10, y ) items
+                    case items of
+                        Nothing ->
+                            roundRect "*" ( w + 10, y )
+
+                        Just items_ ->
+                            viewSchema defs ( w + 10, y ) Nothing items_
 
                 graphs =
-                    arrayGraph :: itemsGraphs
+                    [ arrayGraph, itemsGraphs ]
 
                 -- viewMaybeSchema =
                 --     -- List.map (viewSchema defs ( w + 10, y ) Nothing) items
@@ -163,7 +240,12 @@ viewSchema defs (( x, y ) as coords) name schema =
 
                 refGraph =
                     Dict.get ref defs
-                        |> Maybe.map (viewSchema defs ( w + 10, y ) Nothing)
+                        |> Maybe.map (\_ -> roundRect ref ( w + 10, y ))
+
+                -- |> Maybe.map (viewSchema defs ( w + 10, y ) Nothing)
+                -- refGraph =
+                --     Dict.get ref defs
+                --         |> Maybe.map (viewSchema defs ( w + 10, y ) Nothing)
             in
             case refGraph of
                 Nothing ->
@@ -185,13 +267,14 @@ viewSchema defs (( x, y ) as coords) name schema =
             ( Svg.g [] [], coords )
 
 
-viewMulti defs ( x, y ) icon name schemas =
+viewMulti : Definitions -> Coordinates -> String -> Maybe Name -> List Schema -> ( Svg msg, Dimensions )
+viewMulti defs ( x, y ) icon _ schemas =
     let
         ( choiceGraph, ( w, h ) ) =
             roundRect icon ( x, y )
 
         ( subSchemaGraphs, newCoords ) =
-            viewElms viewAnonymousSchema defs ( w + 10, y ) schemas
+            viewItems defs ( w + 10, y ) schemas
 
         allOfGraph =
             choiceGraph :: subSchemaGraphs
@@ -213,67 +296,64 @@ viewMaybeTitle coords s mTitle =
     roundRect title coords
 
 
-viewBodyParams defs coords { name, schema } =
-    viewPathParams defs coords "body" schema name
+
+-- viewBodyParams defs coords { name, schema } =
+--     viewPathParams defs coords "body" schema name
+-- viewPathParams defs ( x, y ) location schema name =
+--     let
+--         ( locGraph, ( w, h ) ) =
+--             roundRect (location ++ " ::") ( x, y )
+--         ( schemaGraphs, newCoords ) =
+--             viewSchema defs ( w + 10, y ) (Just name) schema
+--         fullGraph =
+--             [ locGraph, schemaGraphs ]
+--     in
+--     ( fullGraph, newCoords )
+--         |> toSvgCoordsTuple
+-- viewFile : Coordinates -> Maybe String -> ( Svg msg, Dimensions )
+-- viewFile coords name =
+--     iconRect IFile name coords
 
 
-viewPathParams defs ( x, y ) location schema name =
-    let
-        ( locGraph, ( w, h ) ) =
-            roundRect (location ++ " ::") ( x, y )
-
-        ( schemaGraphs, newCoords ) =
-            viewSchema defs ( w + 10, y ) (Just name) schema
-
-        fullGraph =
-            [ locGraph, schemaGraphs ]
-    in
-    ( fullGraph, newCoords )
-        |> toSvgCoordsTuple
-
-
-viewFile coords name =
-    iconRect IFile name coords
-
-
+viewBool : Coordinates -> Maybe String -> ( Svg msg, Dimensions )
 viewBool coords name =
     iconRect IBool name coords
 
 
+viewFloat : Coordinates -> Maybe String -> ( Svg msg, Dimensions )
 viewFloat coords name =
     iconRect IFloat name coords
 
 
+viewInteger : Coordinates -> Maybe String -> ( Svg msg, Dimensions )
 viewInteger coords name =
     iconRect IInt name coords
 
 
+viewString : Coordinates -> Maybe String -> ( Svg msg, Dimensions )
 viewString coords name =
     iconRect IStr name coords
 
 
-viewResponses defs coords responses =
-    viewElms viewResponse defs coords responses
 
-
-viewResponse defs ( x, y ) ( code, { description, schema } ) =
-    let
-        ( codeGraph, ( w, h ) ) =
-            roundRect code ( x, y )
-
-        schemaView =
-            Maybe.map (viewAnonymousSchema defs ( w + 10, y )) schema
-    in
-    case schemaView of
-        Nothing ->
-            ( codeGraph, ( w, h ) )
-
-        Just ( schemaGraph, newCoords ) ->
-            let
-                graph =
-                    Svg.g [] [ codeGraph, schemaGraph ]
-            in
-            ( graph, newCoords )
+-- viewResponses defs coords responses =
+--     viewElms viewResponse defs coords responses
+-- viewResponse defs ( x, y ) ( code, { description, schema } ) =
+--     let
+--         ( codeGraph, ( w, h ) ) =
+--             roundRect code ( x, y )
+--         schemaView =
+--             Maybe.map (viewAnonymousSchema defs ( w + 10, y )) schema
+--     in
+--     case schemaView of
+--         Nothing ->
+--             ( codeGraph, ( w, h ) )
+--         Just ( schemaGraph, newCoords ) ->
+--             let
+--                 graph =
+--                     Svg.g [] [ codeGraph, schemaGraph ]
+--             in
+--             ( graph, newCoords )
 
 
 viewProperty defs coords objectProperty =
@@ -559,7 +639,7 @@ iconGraph icon coords =
             iconGeneric coords "F"
 
         IRef s ->
-            iconGeneric coords ("& " ++ s)
+            iconGeneric coords ("*" ++ s)
 
 
 iconGeneric : Coordinates -> String -> ( Svg msg, Dimensions )
@@ -584,7 +664,7 @@ iconGeneric ( x, y ) iconStr =
         attrs =
             [ SvgA.x (String.fromFloat mt)
             , SvgA.y (String.fromFloat tt)
-            , fg
+            , Debug.log "text color" fg
             , SvgA.fontFamily "Monospace"
             , SvgA.fontSize "12"
             , SvgA.dominantBaseline "middle"
@@ -625,12 +705,13 @@ computeVerticalText y =
 
 
 color r g b =
-    Color.rgb r g b
+    Color.rgb (Debug.log "red" r) g b
         |> Color.Convert.colorToHex
+        |> Debug.log "color"
 
 
 lightClr =
-    color 230 230 230
+    "#e6e6e6"
 
 
 darkClr =

@@ -1,4 +1,4 @@
-module JsonSchema exposing (decoder)
+module Json.Schema.Decode exposing (decoder)
 
 {-| Decoding a JSON Schema to an `JsonSchema.Schema`
 
@@ -47,7 +47,7 @@ schemaDecoder =
                 , succeed Schema.array
                     |> maybeOptional "title" string
                     |> maybeOptional "description" string
-                    |> optional "items" (list schemaDecoder) []
+                    |> maybeOptional "items" schemaDecoder
                     |> maybeOptional "minItems" int
                     |> maybeOptional "maxItems" int
                     |> optional "examples" (list value) []
