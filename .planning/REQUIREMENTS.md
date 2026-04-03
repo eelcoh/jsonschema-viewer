@@ -1,0 +1,87 @@
+# Requirements: JSON Schema Viewer
+
+**Defined:** 2026-04-03
+**Core Value:** Users can visually navigate and understand the structure of any JSON Schema document through an interactive SVG diagram with expandable/collapsible nodes.
+
+## v1.0 Requirements
+
+Requirements for initial release. Each maps to roadmap phases.
+
+### Foundation
+
+- [ ] **FOUND-01**: `Debug.log` calls removed from `Render.Svg` so production builds work with `--optimize`
+- [ ] **FOUND-02**: App upgraded from `Browser.sandbox` to `Browser.element` to support user input and interactivity
+
+### Input
+
+- [ ] **INPUT-01**: User can paste a JSON Schema document into a textarea and see it rendered as a diagram
+- [ ] **INPUT-02**: User can upload a JSON Schema file from their filesystem and see it rendered as a diagram
+
+### Rendering
+
+- [ ] **REND-01**: `$ref` references are resolved and rendered inline with the referenced schema content (with circular reference guard)
+- [ ] **REND-02**: SVG viewport dynamically scales to fit the rendered schema diagram
+- [ ] **REND-03**: Required properties are visually distinct from optional properties
+
+### Interactivity
+
+- [ ] **INTR-01**: User can click a node to expand or collapse its children (objects show/hide properties, arrays show/hide items)
+
+### Visual
+
+- [ ] **VIS-01**: Connector lines link parent nodes to their child properties
+- [ ] **VIS-02**: `$ref` nodes have a distinct visual style (e.g., dashed border or link icon) distinguishing them from inline schemas
+
+## v2 Requirements
+
+Deferred to future release. Tracked but not in current roadmap.
+
+### Interactivity
+
+- **INTR-02**: User can expand-all or collapse-all nodes with a single action
+- **INTR-03**: User can hover over a node to see its description in a tooltip
+
+### Rendering
+
+- **REND-04**: String format annotations (email, date-time, uri) displayed on nodes
+
+### Performance
+
+- **PERF-01**: Large schemas (OpenAPI specs with 100+ definitions) render without noticeable lag
+
+## Out of Scope
+
+| Feature | Reason |
+|---------|--------|
+| Pan and zoom | Requires JS interop or complex SVG transforms, disproportionate risk for v1 |
+| Schema editing/authoring | This is a viewer, not an editor |
+| Schema validation | Display structure, don't validate data against it |
+| Multi-file schema resolution | Single document input for v1 |
+| Server-side processing | Client-only Elm app, no backend |
+| Mobile-optimized layout | Desktop-first for diagram viewing |
+
+## Traceability
+
+Which phases cover which requirements. Updated during roadmap creation.
+
+| Requirement | Phase | Status |
+|-------------|-------|--------|
+| FOUND-01 | -- | Pending |
+| FOUND-02 | -- | Pending |
+| INPUT-01 | -- | Pending |
+| INPUT-02 | -- | Pending |
+| REND-01 | -- | Pending |
+| REND-02 | -- | Pending |
+| REND-03 | -- | Pending |
+| INTR-01 | -- | Pending |
+| VIS-01 | -- | Pending |
+| VIS-02 | -- | Pending |
+
+**Coverage:**
+- v1.0 requirements: 10 total
+- Mapped to phases: 0
+- Unmapped: 10
+
+---
+*Requirements defined: 2026-04-03*
+*Last updated: 2026-04-03 after initial definition*
