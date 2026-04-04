@@ -12,7 +12,7 @@
 body {
   font-family: 'Source Sans Pro', 'Trebuchet MS', 'Lucida Grande', 'Bitstream Vera Sans', 'Helvetica Neue', sans-serif;
   margin: 0;
-  text-align: center;
+  text-align: left;
   color: #293c4b;
 }
 
@@ -23,4 +23,180 @@ h1 {
 img {
   margin: 20px 0;
   max-width: 200px;
+}
+
+/* Layout */
+.app-layout {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    width: 100vw;
+    overflow: hidden;
+}
+
+.app-content {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+}
+
+/* Toolbar — 48px height, secondary background */
+.toolbar {
+    display: flex;
+    align-items: center;
+    height: 48px;
+    min-height: 48px;
+    padding: 0 16px;
+    background: #f6f8fa;
+    border-bottom: 1px solid #d0d7de;
+    gap: 8px;
+}
+
+.toolbar-left {
+    flex: 1;
+}
+
+.app-title {
+    font-size: 20px;
+    font-weight: 600;
+    line-height: 1.2;
+}
+
+/* Example buttons — button group in toolbar */
+.example-buttons {
+    display: flex;
+    gap: 0;
+}
+
+.example-btn {
+    height: 28px;
+    padding: 0 8px;
+    border: 1px solid #d0d7de;
+    background: #f6f8fa;
+    color: #293c4b;
+    font-family: inherit;
+    font-size: 14px;
+    cursor: pointer;
+    line-height: 1;
+}
+
+.example-btn:first-child {
+    border-radius: 4px 0 0 4px;
+}
+
+.example-btn:last-child {
+    border-radius: 0 4px 4px 0;
+}
+
+.example-btn:not(:first-child) {
+    border-left: none;
+}
+
+.example-btn.active {
+    background: #0969da;
+    border-color: #0969da;
+    color: #ffffff;
+}
+
+/* Collapse toggle */
+.collapse-toggle {
+    width: 32px;
+    height: 32px;
+    border: none;
+    background: none;
+    color: #0969da;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: inherit;
+    padding: 0;
+}
+
+/* Input panel — left side, 35% width */
+.input-panel {
+    width: 35%;
+    min-width: 280px;
+    display: flex;
+    flex-direction: column;
+    border-right: 1px solid #d0d7de;
+    background: #f6f8fa;
+}
+
+.input-panel.drag-hover {
+    background: #dbeafe;
+}
+
+.input-panel.drag-hover .schema-textarea {
+    background: #dbeafe;
+    border-color: #0969da;
+}
+
+/* Textarea */
+.schema-textarea {
+    flex: 1;
+    width: 100%;
+    box-sizing: border-box;
+    padding: 16px;
+    border: 2px solid transparent;
+    border-top: none;
+    background: #ffffff;
+    color: #293c4b;
+    font-family: inherit;
+    font-size: 13px;
+    line-height: 1.6;
+    resize: none;
+    outline: none;
+}
+
+.schema-textarea:focus {
+    border-color: #0969da;
+}
+
+/* Diagram panel — right side, flex 1 */
+.diagram-panel {
+    flex: 1;
+    overflow: auto;
+    background: #ffffff;
+}
+
+/* Error display */
+.error-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    max-width: 560px;
+    margin: 0 auto;
+    padding: 32px;
+    text-align: left;
+}
+
+.error-heading {
+    font-size: 20px;
+    font-weight: 600;
+    color: #cf222e;
+    margin: 0 0 8px 0;
+    width: 100%;
+}
+
+.error-body {
+    font-size: 14px;
+    font-weight: 400;
+    color: #293c4b;
+    margin: 0 0 16px 0;
+    width: 100%;
+}
+
+.error-detail {
+    font-size: 13px;
+    font-weight: 400;
+    color: #293c4b;
+    font-family: monospace;
+    background: #f6f8fa;
+    padding: 16px;
+    overflow-x: auto;
+    width: 100%;
+    box-sizing: border-box;
+    margin: 0;
+    border-radius: 4px;
 }

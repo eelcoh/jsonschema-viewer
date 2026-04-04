@@ -1,14 +1,13 @@
 module Main exposing (main)
 
 import Browser
-import Dict
 import File
 import Html exposing (Html, div, text)
 import Html.Attributes as Attr
 import Html.Events
 import Json.Decode exposing (decodeString)
-import Json.Schema exposing (Definitions, Schema)
-import Json.Schema.Decode exposing (decoder)
+import Json.Schema
+import Json.Schema.Decode
 import Process
 import Render.Svg as Render
 import Task
@@ -85,29 +84,99 @@ init _ =
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
-        TextareaChanged _ ->
-            ( model, Cmd.none )
+        TextareaChanged newText ->
+            let
+                newGen =
+                    model.debounceGeneration + 1
 
-        DebounceTimeout _ ->
-            ( model, Cmd.none )
+                parsed =
+                    decodeString Json.Schema.Decode.decoder newText
 
-        FileDrop _ ->
-            ( model, Cmd.none )
+                newLastValid =
+                    case parsed of
+                        Ok s ->
+                            Just s
 
-        FileContentLoaded _ ->
-            ( model, Cmd.none )
+                        Err _ ->
+                            model.lastValidSchema
+            in
+            ( { model
+                | inputText = newText
+                , parsedSchema = parsed
+                , lastValidSchema = newLastValid
+                , debounceGeneration = newGen
+                , displayErrors = False
+              }
+            , Process.sleep 800
+                |> Task.perform (\_ -> DebounceTimeout newGen)
+            )
 
-        ExampleSelected _ ->
-            ( model, Cmd.none )
+        DebounceTimeout gen ->
+            if gen == model.debounceGeneration then
+                ( { model | displayErrors = True }, Cmd.none )
+
+            else
+                ( model, Cmd.none )
+
+        FileDrop file ->
+            ( { model | dragHover = False }
+            , Task.perform FileContentLoaded (File.toString file)
+            )
+
+        FileContentLoaded content ->
+            let
+                parsed =
+                    decodeString Json.Schema.Decode.decoder content
+
+                newLastValid =
+                    case parsed of
+                        Ok s ->
+                            Just s
+
+                        Err _ ->
+                            model.lastValidSchema
+            in
+            ( { model
+                | inputText = content
+                , parsedSchema = parsed
+                , lastValidSchema = newLastValid
+                , displayErrors = True
+              }
+            , Cmd.none
+            )
+
+        ExampleSelected example ->
+            let
+                content =
+                    exampleContent example
+
+                parsed =
+                    decodeString Json.Schema.Decode.decoder content
+            in
+            ( { model
+                | inputText = content
+                , parsedSchema = parsed
+                , lastValidSchema =
+                    case parsed of
+                        Ok s ->
+                            Just s
+
+                        Err _ ->
+                            model.lastValidSchema
+                , selectedExample = example
+                , displayErrors = False
+              }
+            , Cmd.none
+            )
 
         TogglePanel ->
-            ( model, Cmd.none )
+            ( { model | panelCollapsed = not model.panelCollapsed }, Cmd.none )
 
         DragEnter ->
-            ( model, Cmd.none )
+            ( { model | dragHover = True }, Cmd.none )
 
         DragLeave ->
-            ( model, Cmd.none )
+            ( { model | dragHover = False }, Cmd.none )
 
         NoOp ->
             ( model, Cmd.none )
@@ -115,14 +184,128 @@ update msg model =
 
 view : Model -> Html Msg
 view model =
-    case model.parsedSchema of
-        Err e ->
-            div [] [ text (Json.Decode.errorToString e) ]
+    div [ Attr.class "app-layout" ]
+        [ viewToolbar model
+        , div [ Attr.class "app-content" ]
+            [ if model.panelCollapsed then
+                text ""
 
-        Ok spec ->
-            div []
-                [ Render.view spec.definitions spec.schema
-                ]
+              else
+                viewInputPanel model
+            , viewDiagramPanel model
+            ]
+        ]
+
+
+viewToolbar : Model -> Html Msg
+viewToolbar model =
+    div [ Attr.class "toolbar" ]
+        [ div [ Attr.class "toolbar-left" ]
+            [ Html.span [ Attr.class "app-title" ] [ text "JSON Schema Viewer" ]
+            ]
+        , viewExampleButtons model.selectedExample
+        , viewCollapseToggle model.panelCollapsed
+        ]
+
+
+viewExampleButtons : ExampleSchema -> Html Msg
+viewExampleButtons selected =
+    div [ Attr.class "example-buttons" ]
+        [ exampleButton ExampleArrays "Arrays" selected
+        , exampleButton ExamplePerson "Person" selected
+        , exampleButton ExampleNested "Nested" selected
+        ]
+
+
+exampleButton : ExampleSchema -> String -> ExampleSchema -> Html Msg
+exampleButton example label selected =
+    Html.button
+        [ Attr.class
+            (if example == selected then
+                "example-btn active"
+
+             else
+                "example-btn"
+            )
+        , Html.Events.onClick (ExampleSelected example)
+        ]
+        [ text label ]
+
+
+viewCollapseToggle : Bool -> Html Msg
+viewCollapseToggle collapsed =
+    Html.button
+        [ Attr.class "collapse-toggle"
+        , Html.Events.onClick TogglePanel
+        ]
+        [ text
+            (if collapsed then
+                "Show"
+
+             else
+                "Hide"
+            )
+        ]
+
+
+viewInputPanel : Model -> Html Msg
+viewInputPanel model =
+    div
+        [ Attr.class "input-panel"
+        , Attr.classList [ ( "drag-hover", model.dragHover ) ]
+        , Html.Events.preventDefaultOn "dragover"
+            (Json.Decode.succeed ( DragEnter, True ))
+        , Html.Events.preventDefaultOn "dragleave"
+            (Json.Decode.succeed ( DragLeave, True ))
+        , Html.Events.preventDefaultOn "drop"
+            (Json.Decode.map
+                (\file -> ( FileDrop file, True ))
+                (Json.Decode.at [ "dataTransfer", "files", "0" ] File.decoder)
+            )
+        ]
+        [ Html.textarea
+            [ Attr.class "schema-textarea"
+            , Attr.value model.inputText
+            , Html.Events.onInput TextareaChanged
+            , Attr.placeholder "Paste a JSON Schema document here, or drag and drop a .json file."
+            , Attr.attribute "spellcheck" "false"
+            , Attr.attribute "autocorrect" "off"
+            , Attr.attribute "autocapitalize" "off"
+            ]
+            []
+        ]
+
+
+viewDiagramPanel : Model -> Html Msg
+viewDiagramPanel model =
+    div [ Attr.class "diagram-panel" ]
+        [ case model.parsedSchema of
+            Ok spec ->
+                Render.view spec.definitions spec.schema
+
+            Err e ->
+                if model.displayErrors then
+                    viewError e
+
+                else
+                    case model.lastValidSchema of
+                        Just spec ->
+                            Render.view spec.definitions spec.schema
+
+                        Nothing ->
+                            viewError e
+        ]
+
+
+viewError : Json.Decode.Error -> Html Msg
+viewError error =
+    div [ Attr.class "error-container" ]
+        [ Html.h2 [ Attr.class "error-heading" ] [ text "Invalid JSON Schema" ]
+        , Html.p [ Attr.class "error-body" ]
+            [ text "The pasted text is not valid JSON Schema. Check the input and try again." ]
+        , Html.pre [ Attr.class "error-detail" ]
+            [ text (Json.Decode.errorToString error) ]
+        ]
 
 
 exampleContent : ExampleSchema -> String
