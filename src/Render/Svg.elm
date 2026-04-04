@@ -34,7 +34,7 @@ view : Definitions -> Schema -> Html.Html msg
 view defs schema =
     let
         schemaView =
-            Tuple.first <| viewSchema defs ( 0, 0 ) Nothing (Debug.log "schema " schema)
+            Tuple.first <| viewSchema defs ( 0, 0 ) Nothing schema
     in
     Svg.svg
         [ SvgA.width "520"
@@ -664,7 +664,7 @@ iconGeneric ( x, y ) iconStr =
         attrs =
             [ SvgA.x (String.fromFloat mt)
             , SvgA.y (String.fromFloat tt)
-            , Debug.log "text color" fg
+            , fg
             , SvgA.fontFamily "Monospace"
             , SvgA.fontSize "12"
             , SvgA.dominantBaseline "middle"
@@ -705,9 +705,8 @@ computeVerticalText y =
 
 
 color r g b =
-    Color.rgb (Debug.log "red" r) g b
+    Color.rgb r g b
         |> Color.Convert.colorToHex
-        |> Debug.log "color"
 
 
 lightClr =
