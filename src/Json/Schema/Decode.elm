@@ -6,7 +6,6 @@ module Json.Schema.Decode exposing (decoder)
 
 -}
 
-import Debug
 import Dict
 import Json.Decode exposing (Decoder, andThen, bool, dict, fail, field, float, int, keyValuePairs, lazy, list, map, map2, maybe, nullable, oneOf, string, succeed, value)
 import Json.Decode.Pipeline exposing (optional, required)
@@ -137,7 +136,7 @@ constant expectedValue decoder_ =
                     succeed actualValue
 
                 else
-                    fail <| "Expected value: " ++ Debug.toString expectedValue ++ " but got value: " ++ Debug.toString actualValue
+                    fail "Constant value mismatch"
             )
 
 
