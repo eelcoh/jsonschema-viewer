@@ -31,15 +31,18 @@ Decimal phases appear between their surrounding integers in numeric order.
 **Plans**: TBD
 
 ### Phase 2: Correct Rendering
-**Goal**: All JSON Schema constructs render accurately — $ref definitions are visible inline, the SVG fits the full diagram, and required vs optional properties are visually distinguished
+**Goal**: All JSON Schema constructs render accurately — $ref definitions display their definition name with distinct styling, the SVG fits the full diagram, and required vs optional properties are visually distinguished
 **Depends on**: Phase 1
 **Requirements**: REND-01, REND-02, REND-03
 **Success Criteria** (what must be TRUE):
-  1. A schema containing a $ref renders the referenced definition's fields inline at the reference site, not just a label
+  1. A schema containing a $ref renders the referenced definition name with a visually distinct node style, not just a raw key
   2. A large schema (e.g., Petstore Swagger components) is fully visible — no content clipped by the SVG boundary
-  3. Required properties appear visually distinct from optional properties (e.g., bold name, filled indicator, or different color)
+  3. Required properties appear visually distinct from optional properties (bold name vs normal weight)
   4. A $ref that references itself (or forms a cycle) does not crash or hang the browser
-**Plans**: TBD
+**Plans**: 2 plans
+Plans:
+- [ ] 02-01-PLAN.md — Extract and test pure rendering helper functions
+- [ ] 02-02-PLAN.md — Implement $ref rendering, dynamic viewBox, and required/optional distinction
 **UI hint**: yes
 
 ### Phase 3: Expand/Collapse
@@ -73,6 +76,6 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Foundation and Input | 1/2 | In Progress|  |
-| 2. Correct Rendering | 0/TBD | Not started | - |
+| 2. Correct Rendering | 0/2 | Planned | - |
 | 3. Expand/Collapse | 0/TBD | Not started | - |
 | 4. Visual Polish | 0/TBD | Not started | - |
