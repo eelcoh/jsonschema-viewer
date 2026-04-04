@@ -14,8 +14,8 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Input
 
-- [ ] **INPUT-01**: User can paste a JSON Schema document into a textarea and see it rendered as a diagram
-- [ ] **INPUT-02**: User can upload a JSON Schema file from their filesystem and see it rendered as a diagram
+- [x] **INPUT-01**: User can paste a JSON Schema document into a textarea and see it rendered as a diagram
+- [x] **INPUT-02**: User can upload a JSON Schema file from their filesystem and see it rendered as a diagram
 
 ### Rendering
 
@@ -68,8 +68,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 |-------------|-------|--------|
 | FOUND-01 | Phase 1 | Complete |
 | FOUND-02 | Phase 1 | Complete |
-| INPUT-01 | Phase 1 | Pending |
-| INPUT-02 | Phase 1 | Pending |
+| INPUT-01 | Phase 1 | Complete |
+| INPUT-02 | Phase 1 | Complete |
 | REND-01 | Phase 2 | Pending |
 | REND-02 | Phase 2 | Pending |
 | REND-03 | Phase 2 | Pending |
