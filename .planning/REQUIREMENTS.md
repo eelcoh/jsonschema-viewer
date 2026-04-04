@@ -9,8 +9,8 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Foundation
 
-- [ ] **FOUND-01**: `Debug.log` calls removed from `Render.Svg` so production builds work with `--optimize`
-- [ ] **FOUND-02**: App upgraded from `Browser.sandbox` to `Browser.element` to support user input and interactivity
+- [x] **FOUND-01**: `Debug.log` calls removed from `Render.Svg` so production builds work with `--optimize`
+- [x] **FOUND-02**: App upgraded from `Browser.sandbox` to `Browser.element` to support user input and interactivity
 
 ### Input
 
@@ -66,8 +66,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| FOUND-01 | Phase 1 | Pending |
-| FOUND-02 | Phase 1 | Pending |
+| FOUND-01 | Phase 1 | Complete |
+| FOUND-02 | Phase 1 | Complete |
 | INPUT-01 | Phase 1 | Pending |
 | INPUT-02 | Phase 1 | Pending |
 | REND-01 | Phase 2 | Pending |
