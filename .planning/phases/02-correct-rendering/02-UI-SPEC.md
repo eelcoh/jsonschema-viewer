@@ -57,6 +57,12 @@ This phase makes no changes to the HTML/CSS layout. All spacing changes are in S
 
 **Source:** `src/Render/Svg.elm` constants `ySpace = 10`, `pillHeight = 28`; RESEARCH.md Pattern 1 (padding = 20).
 
+**Exceptions — SVG coordinate values not on the 8-point CSS scale:**
+
+`ySpace = 10px` and `siblingGap = 10px` are pre-existing SVG coordinate constants inherited from the original renderer. They are not CSS layout values and are not part of the HTML grid system. The 10px value was chosen for visual density in diagram layout — it produces compact, readable node spacing in the SVG coordinate plane where the unit is a logical pixel of the viewBox, not a screen pixel. These values are retained unchanged in this phase and are intentionally exempt from the 8-point CSS spacing scale.
+
+`viewBox padding = 20px` similarly lives in SVG coordinate space. It provides a comfortable margin around the diagram extent. It is not a CSS layout value.
+
 Exceptions: The SVG `width` and `height` attributes change from hardcoded `"520"` to `"100%"` — this is not a spacing value but a viewport sizing change per D-09.
 
 ---
