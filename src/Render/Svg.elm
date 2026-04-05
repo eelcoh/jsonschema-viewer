@@ -4,10 +4,12 @@ import Color exposing (gray)
 import Color.Convert
 import Dict
 import Html exposing (text)
+import Json.Decode
 import Json.Schema as Schema exposing (Definitions, Schema)
 import Set exposing (Set)
 import Svg exposing (Svg)
 import Svg.Attributes as SvgA exposing (refY)
+import Svg.Events
 import Svg.Lazy exposing (lazy)
 
 
@@ -31,11 +33,11 @@ pillHeight =
     28
 
 
-view : Definitions -> Schema -> Html.Html msg
-view defs schema =
+view : (String -> msg) -> Set String -> Definitions -> Schema -> Html.Html msg
+view toggleMsg collapsedNodes defs schema =
     let
         ( schemaView, ( w, h ) ) =
-            viewSchema Set.empty defs ( 0, 0 ) Nothing "700" schema
+            viewSchema Set.empty defs collapsedNodes toggleMsg "root" ( 0, 0 ) Nothing "700" schema
 
         vb =
             viewBoxString w h 20
@@ -48,13 +50,28 @@ view defs schema =
         [ schemaView ]
 
 
+clickableGroup : msg -> ( Svg.Svg msg, Dimensions ) -> ( Svg.Svg msg, Dimensions )
+clickableGroup msg ( svg, dims ) =
+    ( Svg.g
+        [ Svg.Events.stopPropagationOn "click"
+            (Json.Decode.succeed ( msg, True ))
+        , SvgA.cursor "pointer"
+        ]
+        [ svg ]
+    , dims
+    )
+
+
 viewProperties :
     Set String
     -> Definitions
+    -> Set String
+    -> (String -> msg)
+    -> String
     -> Coordinates
     -> List Schema.ObjectProperty
     -> ( List (Svg msg), Coordinates )
-viewProperties visited defs coords props =
+viewProperties visited defs collapsedNodes toggleMsg path coords props =
     let
         ( g, ( _, h ), w ) =
             viewProps coords props
@@ -67,7 +84,7 @@ viewProperties visited defs coords props =
                 element :: elements ->
                     let
                         ( g_, ( w1, h1 ) ) =
-                            viewProperty visited defs coords_ element
+                            viewProperty visited defs collapsedNodes toggleMsg path coords_ element
 
                         ( gs, ( w2, h2 ), w3 ) =
                             viewProps ( x, h1 + 10 ) elements
@@ -83,26 +100,32 @@ viewProperties visited defs coords props =
 viewItems :
     Set String
     -> Definitions
+    -> Set String
+    -> (String -> msg)
+    -> String
     -> Coordinates
     -> List Schema
     -> ( List (Svg msg), Coordinates )
-viewItems visited defs coords items =
+viewItems visited defs collapsedNodes toggleMsg path coords items =
     let
         ( g, ( _, h ), w ) =
-            viewItems_ coords items
+            viewItems_ 0 coords items
 
-        viewItems_ (( x, y ) as coords_) elms =
+        viewItems_ idx (( x, y ) as coords_) elms =
             case elms of
                 [] ->
                     ( [], coords_, x )
 
                 element :: elements ->
                     let
+                        itemPath =
+                            path ++ "." ++ String.fromInt idx
+
                         ( g_, ( w1, h1 ) ) =
-                            viewArrayItem visited defs coords_ element
+                            viewArrayItem visited defs collapsedNodes toggleMsg itemPath coords_ element
 
                         ( gs, ( w2, h2 ), w3 ) =
-                            viewItems_ ( x, h1 + 10 ) elements
+                            viewItems_ (idx + 1) ( x, h1 + 10 ) elements
 
                         maxW =
                             List.foldl Basics.max w1 [ w1, w2, w3 ]
@@ -156,60 +179,59 @@ type alias Name =
     String
 
 
-viewAnonymousSchema : Set String -> Definitions -> Coordinates -> Schema -> ( Svg msg, Dimensions )
-viewAnonymousSchema visited defs coords schema =
-    viewSchema visited defs coords Nothing "700" schema
+viewAnonymousSchema : Set String -> Definitions -> Set String -> (String -> msg) -> String -> Coordinates -> Schema -> ( Svg msg, Dimensions )
+viewAnonymousSchema visited defs collapsedNodes toggleMsg path coords schema =
+    viewSchema visited defs collapsedNodes toggleMsg path coords Nothing "700" schema
 
 
-viewSchema : Set String -> Definitions -> Coordinates -> Maybe Name -> String -> Schema -> ( Svg msg, Dimensions )
-viewSchema visited defs (( x, y ) as coords) name weight schema =
+viewSchema : Set String -> Definitions -> Set String -> (String -> msg) -> String -> Coordinates -> Maybe Name -> String -> Schema -> ( Svg msg, Dimensions )
+viewSchema visited defs collapsedNodes toggleMsg path (( x, y ) as coords) name weight schema =
     case schema of
         Schema.Object { title, properties } ->
             let
-                t =
-                    Maybe.map (\a -> a ++ " | {..}") name
-                        |> Maybe.withDefault "{..}"
-
                 ( objectGraph, ( w, h ) ) =
                     iconRect IObject name weight coords
-
-                ( propertiesGraphs, ( pw, ph ) ) =
-                    viewProperties visited defs ( w + 10, y ) properties
-
-                graphs =
-                    objectGraph :: propertiesGraphs
+                        |> clickableGroup (toggleMsg path)
             in
-            ( graphs, ( pw, Basics.max h ph ) )
-                |> toSvgCoordsTuple
+            if Set.member path collapsedNodes then
+                ( objectGraph, ( w, h ) )
+
+            else
+                let
+                    ( propertiesGraphs, ( pw, ph ) ) =
+                        viewProperties visited defs collapsedNodes toggleMsg path ( w + 10, y ) properties
+
+                    graphs =
+                        objectGraph :: propertiesGraphs
+                in
+                ( graphs, ( pw, Basics.max h ph ) )
+                    |> toSvgCoordsTuple
 
         Schema.Array { title, items } ->
             let
-                t =
-                    Maybe.map (\a -> a ++ " | [..]") name
-                        |> Maybe.withDefault "[..]"
-
                 ( arrayGraph, ( w, h ) ) =
                     iconRect IList name weight coords
-
-                ( itemsGraphs, ( iw, ih ) ) =
-                    case items of
-                        Nothing ->
-                            roundRect "*" ( w + 10, y )
-
-                        Just items_ ->
-                            viewSchema visited defs ( w + 10, y ) Nothing "700" items_
-
-                graphs =
-                    [ arrayGraph, itemsGraphs ]
+                        |> clickableGroup (toggleMsg path)
             in
-            ( graphs, ( iw, Basics.max h ih ) )
-                |> toSvgCoordsTuple
+            if Set.member path collapsedNodes then
+                ( arrayGraph, ( w, h ) )
 
-        -- case viewMaybeSchema of
-        --     Nothing ->
-        --         ( arrayGraph, ( w, h ) )
-        --     Just ( g, c ) ->
-        --         ( Svg.g [] [ arrayGraph, g ], c )
+            else
+                let
+                    ( itemsGraph, ( iw, ih ) ) =
+                        case items of
+                            Nothing ->
+                                roundRect "*" ( w + 10, y )
+
+                            Just items_ ->
+                                viewSchema visited defs collapsedNodes toggleMsg (path ++ ".items") ( w + 10, y ) Nothing "700" items_
+
+                    graphs =
+                        [ arrayGraph, itemsGraph ]
+                in
+                ( graphs, ( iw, Basics.max h ih ) )
+                    |> toSvgCoordsTuple
+
         Schema.String { title } ->
             viewString weight coords name
 
@@ -232,39 +254,60 @@ viewSchema visited defs (( x, y ) as coords) name weight schema =
 
                 isCycle =
                     isCircularRef visited ref
-
-                label =
-                    refLabel defName isCycle
             in
-            iconRect (IRef "*") (Just label) weight ( x, y )
+            if isCycle then
+                -- Cycle pill: not clickable (D-05)
+                iconRect (IRef "*") (Just (refLabel defName True)) weight ( x, y )
+
+            else if Set.member path collapsedNodes then
+                -- Collapsed ref: show label pill with click handler to expand
+                iconRect (IRef "*") (Just defName) weight ( x, y )
+                    |> clickableGroup (toggleMsg path)
+
+            else
+                case Dict.get ref defs of
+                    Nothing ->
+                        -- Definition not found: show label pill, not clickable
+                        iconRect (IRef "*") (Just defName) weight ( x, y )
+
+                    Just defSchema ->
+                        -- Expanded: render definition inline with cycle guard
+                        viewSchema (Set.insert ref visited) defs collapsedNodes toggleMsg path ( x, y ) (Just defName) weight defSchema
+                            |> clickableGroup (toggleMsg path)
 
         Schema.OneOf { title, subSchemas } ->
-            viewMulti visited defs ( x, y ) "|1|" name subSchemas
+            viewMulti visited defs collapsedNodes toggleMsg path ( x, y ) "|1|" name subSchemas
 
         Schema.AnyOf { title, subSchemas } ->
-            viewMulti visited defs ( x, y ) "|o|" name subSchemas
+            viewMulti visited defs collapsedNodes toggleMsg path ( x, y ) "|o|" name subSchemas
 
         Schema.AllOf { title, subSchemas } ->
-            viewMulti visited defs ( x, y ) "(&)" name subSchemas
+            viewMulti visited defs collapsedNodes toggleMsg path ( x, y ) "(&)" name subSchemas
 
         Schema.Fallback _ ->
             ( Svg.g [] [], coords )
 
 
-viewMulti : Set String -> Definitions -> Coordinates -> String -> Maybe Name -> List Schema -> ( Svg msg, Dimensions )
-viewMulti visited defs ( x, y ) icon _ schemas =
+viewMulti : Set String -> Definitions -> Set String -> (String -> msg) -> String -> Coordinates -> String -> Maybe Name -> List Schema -> ( Svg msg, Dimensions )
+viewMulti visited defs collapsedNodes toggleMsg path ( x, y ) icon _ schemas =
     let
         ( choiceGraph, ( w, h ) ) =
             roundRect icon ( x, y )
-
-        ( subSchemaGraphs, newCoords ) =
-            viewItems visited defs ( w + 10, y ) schemas
-
-        allOfGraph =
-            choiceGraph :: subSchemaGraphs
+                |> clickableGroup (toggleMsg path)
     in
-    ( allOfGraph, newCoords )
-        |> toSvgCoordsTuple
+    if Set.member path collapsedNodes then
+        ( choiceGraph, ( w, h ) )
+
+    else
+        let
+            ( subSchemaGraphs, newCoords ) =
+                viewItems visited defs collapsedNodes toggleMsg path ( w + 10, y ) schemas
+
+            allOfGraph =
+                choiceGraph :: subSchemaGraphs
+        in
+        ( allOfGraph, newCoords )
+            |> toSvgCoordsTuple
 
 
 viewMaybeTitle : Coordinates -> String -> Maybe String -> ( Svg msg, Dimensions )
@@ -340,8 +383,8 @@ viewString weight coords name =
 --             ( graph, newCoords )
 
 
-viewProperty : Set String -> Definitions -> Coordinates -> Schema.ObjectProperty -> ( Svg msg, Dimensions )
-viewProperty visited defs coords objectProperty =
+viewProperty : Set String -> Definitions -> Set String -> (String -> msg) -> String -> Coordinates -> Schema.ObjectProperty -> ( Svg msg, Dimensions )
+viewProperty visited defs collapsedNodes toggleMsg path coords objectProperty =
     let
         ( name, property, isRequired ) =
             case objectProperty of
@@ -354,17 +397,20 @@ viewProperty visited defs coords objectProperty =
         weight =
             fontWeightForRequired isRequired
 
+        childPath =
+            path ++ ".properties." ++ name
+
         ( schemaGraph, newCoords ) =
-            viewSchema visited defs coords (Just name) weight property
+            viewSchema visited defs collapsedNodes toggleMsg childPath coords (Just name) weight property
     in
     ( Svg.g [] [ schemaGraph ], newCoords )
 
 
-viewArrayItem : Set String -> Definitions -> Coordinates -> Schema -> ( Svg msg, Dimensions )
-viewArrayItem visited defs coords schema =
+viewArrayItem : Set String -> Definitions -> Set String -> (String -> msg) -> String -> Coordinates -> Schema -> ( Svg msg, Dimensions )
+viewArrayItem visited defs collapsedNodes toggleMsg path coords schema =
     let
         ( schemaGraph, newCoords ) =
-            viewSchema visited defs coords Nothing "700" schema
+            viewSchema visited defs collapsedNodes toggleMsg path coords Nothing "700" schema
     in
     ( Svg.g [] [ schemaGraph ], newCoords )
 

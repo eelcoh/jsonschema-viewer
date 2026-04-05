@@ -10,6 +10,7 @@ import Json.Schema
 import Json.Schema.Decode
 import Process
 import Render.Svg as Render
+import Set exposing (Set)
 import Task
 
 
@@ -28,6 +29,7 @@ type alias Model =
     , panelCollapsed : Bool
     , selectedExample : ExampleSchema
     , dragHover : Bool
+    , collapsedNodes : Set String
     }
 
 
@@ -41,6 +43,7 @@ type Msg
     | DragEnter
     | DragLeave
     | NoOp
+    | ToggleNode String
 
 
 main : Program () Model Msg
@@ -76,6 +79,7 @@ init _ =
       , panelCollapsed = False
       , selectedExample = ExampleArrays
       , dragHover = False
+      , collapsedNodes = Set.empty
       }
     , Cmd.none
     )
@@ -106,6 +110,7 @@ update msg model =
                 , lastValidSchema = newLastValid
                 , debounceGeneration = newGen
                 , displayErrors = False
+                , collapsedNodes = Set.empty
               }
             , Process.sleep 800
                 |> Task.perform (\_ -> DebounceTimeout newGen)
@@ -141,6 +146,7 @@ update msg model =
                 , parsedSchema = parsed
                 , lastValidSchema = newLastValid
                 , displayErrors = True
+                , collapsedNodes = Set.empty
               }
             , Cmd.none
             )
@@ -165,6 +171,7 @@ update msg model =
                             model.lastValidSchema
                 , selectedExample = example
                 , displayErrors = False
+                , collapsedNodes = Set.empty
               }
             , Cmd.none
             )
@@ -177,6 +184,11 @@ update msg model =
 
         DragLeave ->
             ( { model | dragHover = False }, Cmd.none )
+
+        ToggleNode pathKey ->
+            ( { model | collapsedNodes = Render.toggleInSet pathKey model.collapsedNodes }
+            , Cmd.none
+            )
 
         NoOp ->
             ( model, Cmd.none )
@@ -281,7 +293,7 @@ viewDiagramPanel model =
     div [ Attr.class "diagram-panel" ]
         [ case model.parsedSchema of
             Ok spec ->
-                Render.view spec.definitions spec.schema
+                Render.view ToggleNode model.collapsedNodes spec.definitions spec.schema
 
             Err e ->
                 if model.displayErrors then
@@ -290,7 +302,7 @@ viewDiagramPanel model =
                 else
                     case model.lastValidSchema of
                         Just spec ->
-                            Render.view spec.definitions spec.schema
+                            Render.view ToggleNode model.collapsedNodes spec.definitions spec.schema
 
                         Nothing ->
                             viewError e
