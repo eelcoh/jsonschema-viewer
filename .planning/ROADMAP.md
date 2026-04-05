@@ -42,7 +42,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 **Plans**: 2 plans
 Plans:
 - [x] 02-01-PLAN.md — Extract and test pure rendering helper functions
-- [ ] 02-02-PLAN.md — Implement $ref rendering, dynamic viewBox, and required/optional distinction
+- [x] 02-02-PLAN.md — Implement $ref rendering, dynamic viewBox, and required/optional distinction
 **UI hint**: yes
 
 ### Phase 3: Expand/Collapse
