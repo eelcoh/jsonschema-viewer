@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 02-correct-rendering 02-01-PLAN.md
-last_updated: "2026-04-05T08:06:15.576Z"
+stopped_at: "02-02-PLAN.md checkpoint:human-verify (Task 3 — visual verification)"
+last_updated: "2026-04-05T08:10:19.719Z"
 last_activity: 2026-04-05
 progress:
   total_phases: 4
@@ -67,6 +67,7 @@ No decisions logged yet. See PROJECT.md Key Decisions table.
 - [Phase 01-foundation-and-input]: Upgrade to Browser.element with stub update handlers; full input logic deferred to Plan 02
 - [Phase 01-foundation-and-input]: Kept Json.Schema import alongside Json.Schema.Decode — Model type requires full module path
 - [Phase 02-correct-rendering]: Upgraded elm-explorations/test from 1.0.0 to 2.0.0 to match installed elm-test runner (0.19.1-revision17)
+- [Phase 02-correct-rendering]: Thread visited Set String through all view functions for cycle detection; IRef icon shows just '*' not '*++name'; recursive children always use '700' weight
 
 ### Pending Todos
 
@@ -79,6 +80,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-05T08:06:15.572Z
-Stopped at: Completed 02-correct-rendering 02-01-PLAN.md
+Last session: 2026-04-05T08:10:13.267Z
+Stopped at: 02-02-PLAN.md checkpoint:human-verify (Task 3 — visual verification)
 Resume file: None

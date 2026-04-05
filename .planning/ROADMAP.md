@@ -76,6 +76,6 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Foundation and Input | 1/2 | In Progress|  |
-| 2. Correct Rendering | 0/2 | Planned | - |
+| 2. Correct Rendering | 1/2 | In Progress|  |
 | 3. Expand/Collapse | 0/TBD | Not started | - |
 | 4. Visual Polish | 0/TBD | Not started | - |
