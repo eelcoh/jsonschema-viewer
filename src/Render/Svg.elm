@@ -1,10 +1,11 @@
-module Render.Svg exposing (view)
+module Render.Svg exposing (view, viewBoxString, extractRefName, isCircularRef, refLabel, fontWeightForRequired)
 
 import Color exposing (gray)
 import Color.Convert
 import Dict
 import Html exposing (text)
 import Json.Schema as Schema exposing (Definitions, Schema)
+import Set exposing (Set)
 import Svg exposing (Svg)
 import Svg.Attributes as SvgA exposing (refY)
 import Svg.Lazy exposing (lazy)
@@ -716,6 +717,41 @@ lightClr =
 darkClr =
     color 57 114 206
 
+
+viewBoxString : Float -> Float -> Float -> String
+viewBoxString w h padding =
+    "0 0 "
+        ++ String.fromFloat (w + padding)
+        ++ " "
+        ++ String.fromFloat (h + padding)
+
+
+extractRefName : String -> String
+extractRefName ref =
+    String.dropLeft 14 ref
+
+
+isCircularRef : Set String -> String -> Bool
+isCircularRef visited ref =
+    Set.member ref visited
+
+
+refLabel : String -> Bool -> String
+refLabel name isCycle =
+    if isCycle then
+        name ++ " ↺"
+
+    else
+        name
+
+
+fontWeightForRequired : Bool -> String
+fontWeightForRequired isRequired =
+    if isRequired then
+        "700"
+
+    else
+        "400"
 
 
 --
