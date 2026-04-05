@@ -3,7 +3,7 @@ module RenderHelpers exposing (..)
 import Test exposing (..)
 import Expect
 import Set
-import Render.Svg exposing (viewBoxString, extractRefName, isCircularRef, refLabel, fontWeightForRequired)
+import Render.Svg exposing (viewBoxString, extractRefName, isCircularRef, refLabel, fontWeightForRequired, toggleInSet)
 
 
 all : Test
@@ -63,5 +63,19 @@ all =
             , test "returns 400 for optional properties" <|
                 \_ ->
                     Expect.equal "400" (fontWeightForRequired False)
+            ]
+        , describe "toggleInSet"
+            [ test "inserts key when absent" <|
+                \_ ->
+                    Expect.equal (Set.fromList [ "a" ]) (toggleInSet "a" Set.empty)
+            , test "removes key when present" <|
+                \_ ->
+                    Expect.equal Set.empty (toggleInSet "a" (Set.fromList [ "a" ]))
+            , test "does not affect other keys" <|
+                \_ ->
+                    Expect.equal (Set.fromList [ "b" ]) (toggleInSet "a" (Set.fromList [ "a", "b" ]))
+            , test "inserts into non-empty set" <|
+                \_ ->
+                    Expect.equal (Set.fromList [ "a", "b", "c" ]) (toggleInSet "c" (Set.fromList [ "a", "b" ]))
             ]
         ]

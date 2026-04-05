@@ -1,4 +1,4 @@
-module Render.Svg exposing (view, viewBoxString, extractRefName, isCircularRef, refLabel, fontWeightForRequired)
+module Render.Svg exposing (view, viewBoxString, extractRefName, isCircularRef, refLabel, fontWeightForRequired, toggleInSet)
 
 import Color exposing (gray)
 import Color.Convert
@@ -740,6 +740,15 @@ fontWeightForRequired isRequired =
 
     else
         "400"
+
+
+toggleInSet : comparable -> Set comparable -> Set comparable
+toggleInSet key set =
+    if Set.member key set then
+        Set.remove key set
+
+    else
+        Set.insert key set
 
 
 --
