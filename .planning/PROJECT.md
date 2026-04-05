@@ -27,15 +27,15 @@ Users can visually navigate and understand the structure of any JSON Schema docu
 - Proof-of-concept SVG rendering of JSON Schema types (Object, Array, String, Integer, Number, Boolean, Null, Ref, OneOf/AnyOf/AllOf)
 - JSON Schema draft-07 decoder using elm-json-decode-pipeline
 - Type-indicating pill-shaped SVG nodes with icons ({..} for objects, [..] for arrays, S for strings)
+- Interactive expand/collapse of schema nodes — Validated in Phase 3: Expand/Collapse
+- Proper `$ref` resolution and inline rendering — Validated in Phase 3: Expand/Collapse
+- Combinator schema visualization (oneOf/anyOf/allOf) — Validated in Phase 2: Correct Rendering
 
 ### Active
 
 <!-- Current scope. Building toward these. -->
 
 - [ ] User can input their own JSON Schema (paste or upload)
-- [ ] Interactive expand/collapse of schema nodes
-- [ ] Proper `$ref` resolution and inline rendering
-- [ ] Combinator schema visualization (oneOf/anyOf/allOf)
 - [ ] Handles real-world schemas (e.g., OpenAPI component schemas)
 
 ### Out of Scope
@@ -87,4 +87,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-04-03 after milestone v1.0 initialization*
+*Last updated: 2026-04-05 after Phase 3 (Expand/Collapse) completion*
