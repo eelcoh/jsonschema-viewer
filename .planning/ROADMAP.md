@@ -58,7 +58,7 @@ Plans:
 **Plans**: 2 plans
 Plans:
 - [x] 03-01-PLAN.md — Update Render.Svg with path threading, conditional rendering, clickableGroup, and $ref inline expansion
-- [ ] 03-02-PLAN.md — Wire Main.elm (Model, Msg, update, view) and browser verification
+- [x] 03-02-PLAN.md — Wire Main.elm (Model, Msg, update, view) and browser verification
 **UI hint**: yes
 
 ### Phase 4: Visual Polish
@@ -81,5 +81,5 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 |-------|----------------|--------|-----------|
 | 1. Foundation and Input | 1/2 | In Progress|  |
 | 2. Correct Rendering | 1/2 | In Progress|  |
-| 3. Expand/Collapse | 1/2 | In Progress|  |
+| 3. Expand/Collapse | 2/2 | In Progress|  |
 | 4. Visual Polish | 0/TBD | Not started | - |
