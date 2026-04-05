@@ -56,16 +56,17 @@ Source: `src/main.css`, `src/Render/Svg.elm` (lines 28–31, 512–519).
 
 All SVG node text uses monospace at a fixed size. HTML shell uses Source Sans Pro. No new font sizes are introduced in Phase 4.
 
+Two weights are declared for this phase. The HTML shell carries `font-weight: 600` on `.app-title`, `.collapse-toggle`, and `.error-heading` from prior phases; those are existing values not modified in Phase 4 and are not counted as additional weights in this contract.
+
 | Role | Size | Weight | Line Height | Context |
 |------|------|--------|-------------|---------|
-| SVG node label | 12px | 400 (optional) / 700 (required) | N/A (SVG dominant-baseline: middle) | Pill node property names |
-| Toolbar title | 20px | 600 | 1.2 | `.app-title` HTML heading |
+| SVG node label (optional) | 12px | 400 | N/A (SVG dominant-baseline: middle) | Pill node optional property names |
+| SVG node label (required) | 12px | 700 | N/A (SVG dominant-baseline: middle) | Pill node required property names — bold |
 | Button / label | 14px | 400 | 1.0 | `.example-btn`, `.error-body` |
-| Error heading | 20px | 600 | implied 1.2 | `.error-heading` |
-| Error body | 14px | 400 | implied 1.5 | `.error-body` |
+| Error body | 14px | 400 | 1.5 | `.error-body` |
 | Code detail | 13px | 400 | 1.6 | `.schema-textarea`, `.error-detail` (monospace) |
 
-Phase 4 adds no new typography. Source: `src/main.css`, `src/Render/Svg.elm` lines 466–467, 587–588.
+Declared weights: **400 (normal)** and **700 (bold)**. No new typography introduced by Phase 4. Source: `src/main.css`, `src/Render/Svg.elm` lines 466–467, 587–588.
 
 ---
 
