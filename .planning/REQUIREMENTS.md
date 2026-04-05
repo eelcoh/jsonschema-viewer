@@ -19,9 +19,9 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Rendering
 
-- [ ] **REND-01**: `$ref` references are resolved and rendered inline with the referenced schema content (with circular reference guard)
-- [ ] **REND-02**: SVG viewport dynamically scales to fit the rendered schema diagram
-- [ ] **REND-03**: Required properties are visually distinct from optional properties
+- [x] **REND-01**: `$ref` references are resolved and rendered inline with the referenced schema content (with circular reference guard)
+- [x] **REND-02**: SVG viewport dynamically scales to fit the rendered schema diagram
+- [x] **REND-03**: Required properties are visually distinct from optional properties
 
 ### Interactivity
 
@@ -70,9 +70,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | FOUND-02 | Phase 1 | Complete |
 | INPUT-01 | Phase 1 | Complete |
 | INPUT-02 | Phase 1 | Complete |
-| REND-01 | Phase 2 | Pending |
-| REND-02 | Phase 2 | Pending |
-| REND-03 | Phase 2 | Pending |
+| REND-01 | Phase 2 | Complete |
+| REND-02 | Phase 2 | Complete |
+| REND-03 | Phase 2 | Complete |
 | INTR-01 | Phase 3 | Pending |
 | VIS-01 | Phase 4 | Pending |
 | VIS-02 | Phase 4 | Pending |

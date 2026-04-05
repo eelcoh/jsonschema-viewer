@@ -41,7 +41,7 @@ Decimal phases appear between their surrounding integers in numeric order.
   4. A $ref that references itself (or forms a cycle) does not crash or hang the browser
 **Plans**: 2 plans
 Plans:
-- [ ] 02-01-PLAN.md — Extract and test pure rendering helper functions
+- [x] 02-01-PLAN.md — Extract and test pure rendering helper functions
 - [ ] 02-02-PLAN.md — Implement $ref rendering, dynamic viewBox, and required/optional distinction
 **UI hint**: yes
 
