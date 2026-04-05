@@ -25,7 +25,7 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Interactivity
 
-- [ ] **INTR-01**: User can click a node to expand or collapse its children (objects show/hide properties, arrays show/hide items)
+- [x] **INTR-01**: User can click a node to expand or collapse its children (objects show/hide properties, arrays show/hide items)
 
 ### Visual
 
@@ -73,7 +73,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | REND-01 | Phase 2 | Complete |
 | REND-02 | Phase 2 | Complete |
 | REND-03 | Phase 2 | Complete |
-| INTR-01 | Phase 3 | Pending |
+| INTR-01 | Phase 3 | Complete |
 | VIS-01 | Phase 4 | Pending |
 | VIS-02 | Phase 4 | Pending |
 
