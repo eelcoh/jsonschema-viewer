@@ -19,7 +19,7 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Rendering
 
-- [x] **REND-01**: `$ref` references are resolved and rendered inline with the referenced schema content (with circular reference guard)
+- [x] **REND-01**: `$ref` nodes display the referenced definition name with a distinct icon; inline expansion with circular reference guard deferred to Phase 3
 - [x] **REND-02**: SVG viewport dynamically scales to fit the rendered schema diagram
 - [x] **REND-03**: Required properties are visually distinct from optional properties
 

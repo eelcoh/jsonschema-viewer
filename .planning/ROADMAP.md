@@ -46,7 +46,7 @@ Plans:
 **UI hint**: yes
 
 ### Phase 3: Expand/Collapse
-**Goal**: Users can click any container node (object, array, combinator) to collapse or expand its children, making large schemas navigable
+**Goal**: Users can click any container node (object, array, combinator) to collapse or expand its children, making large schemas navigable. $ref definitions are expanded inline with cycle detection guard.
 **Depends on**: Phase 2
 **Requirements**: INTR-01
 **Success Criteria** (what must be TRUE):
@@ -54,6 +54,7 @@ Plans:
   2. Clicking an array node hides its items schema; clicking again reveals it
   3. Collapsing a node correctly reflows the layout — no overlapping nodes or stale positions
   4. Two nodes with the same property name at different depths toggle independently
+  5. A $ref node expands to show the referenced definition's fields inline (using the visited-set cycle guard from Phase 2)
 **Plans**: TBD
 **UI hint**: yes
 
