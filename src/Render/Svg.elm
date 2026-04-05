@@ -1,10 +1,11 @@
-module Render.Svg exposing (view)
+module Render.Svg exposing (view, viewBoxString, extractRefName, isCircularRef, refLabel, fontWeightForRequired)
 
 import Color exposing (gray)
 import Color.Convert
 import Dict
 import Html exposing (text)
 import Json.Schema as Schema exposing (Definitions, Schema)
+import Set exposing (Set)
 import Svg exposing (Svg)
 import Svg.Attributes as SvgA exposing (refY)
 import Svg.Lazy exposing (lazy)
@@ -33,23 +34,27 @@ pillHeight =
 view : Definitions -> Schema -> Html.Html msg
 view defs schema =
     let
-        schemaView =
-            Tuple.first <| viewSchema defs ( 0, 0 ) Nothing (Debug.log "schema " schema)
+        ( schemaView, ( w, h ) ) =
+            viewSchema Set.empty defs ( 0, 0 ) Nothing "700" schema
+
+        vb =
+            viewBoxString w h 20
     in
     Svg.svg
-        [ SvgA.width "520"
-        , SvgA.height "520"
-        , SvgA.viewBox "0 0 520 520"
+        [ SvgA.width "100%"
+        , SvgA.height "100%"
+        , SvgA.viewBox vb
         ]
         [ schemaView ]
 
 
 viewProperties :
-    Definitions
+    Set String
+    -> Definitions
     -> Coordinates
     -> List Schema.ObjectProperty
     -> ( List (Svg msg), Coordinates )
-viewProperties defs coords props =
+viewProperties visited defs coords props =
     let
         ( g, ( _, h ), w ) =
             viewProps coords props
@@ -62,7 +67,7 @@ viewProperties defs coords props =
                 element :: elements ->
                     let
                         ( g_, ( w1, h1 ) ) =
-                            viewProperty defs coords_ element
+                            viewProperty visited defs coords_ element
 
                         ( gs, ( w2, h2 ), w3 ) =
                             viewProps ( x, h1 + 10 ) elements
@@ -76,11 +81,12 @@ viewProperties defs coords props =
 
 
 viewItems :
-    Definitions
+    Set String
+    -> Definitions
     -> Coordinates
     -> List Schema
     -> ( List (Svg msg), Coordinates )
-viewItems defs coords items =
+viewItems visited defs coords items =
     let
         ( g, ( _, h ), w ) =
             viewItems_ coords items
@@ -93,7 +99,7 @@ viewItems defs coords items =
                 element :: elements ->
                     let
                         ( g_, ( w1, h1 ) ) =
-                            viewArrayItem defs coords_ element
+                            viewArrayItem visited defs coords_ element
 
                         ( gs, ( w2, h2 ), w3 ) =
                             viewItems_ ( x, h1 + 10 ) elements
@@ -150,13 +156,13 @@ type alias Name =
     String
 
 
-viewAnonymousSchema : Definitions -> Coordinates -> Schema -> ( Svg msg, Dimensions )
-viewAnonymousSchema defs coords schema =
-    viewSchema defs coords Nothing schema
+viewAnonymousSchema : Set String -> Definitions -> Coordinates -> Schema -> ( Svg msg, Dimensions )
+viewAnonymousSchema visited defs coords schema =
+    viewSchema visited defs coords Nothing "700" schema
 
 
-viewSchema : Definitions -> Coordinates -> Maybe Name -> Schema -> ( Svg msg, Dimensions )
-viewSchema defs (( x, y ) as coords) name schema =
+viewSchema : Set String -> Definitions -> Coordinates -> Maybe Name -> String -> Schema -> ( Svg msg, Dimensions )
+viewSchema visited defs (( x, y ) as coords) name weight schema =
     case schema of
         Schema.Object { title, properties } ->
             let
@@ -165,15 +171,15 @@ viewSchema defs (( x, y ) as coords) name schema =
                         |> Maybe.withDefault "{..}"
 
                 ( objectGraph, ( w, h ) ) =
-                    iconRect IObject name coords
+                    iconRect IObject name weight coords
 
-                ( propertiesGraphs, newCoords ) =
-                    viewProperties defs ( w + 10, y ) properties
+                ( propertiesGraphs, ( pw, ph ) ) =
+                    viewProperties visited defs ( w + 10, y ) properties
 
                 graphs =
                     objectGraph :: propertiesGraphs
             in
-            ( graphs, newCoords )
+            ( graphs, ( pw, Basics.max h ph ) )
                 |> toSvgCoordsTuple
 
         Schema.Array { title, items } ->
@@ -183,24 +189,20 @@ viewSchema defs (( x, y ) as coords) name schema =
                         |> Maybe.withDefault "[..]"
 
                 ( arrayGraph, ( w, h ) ) =
-                    iconRect IList name coords
+                    iconRect IList name weight coords
 
-                ( itemsGraphs, newCoords ) =
+                ( itemsGraphs, ( iw, ih ) ) =
                     case items of
                         Nothing ->
                             roundRect "*" ( w + 10, y )
 
                         Just items_ ->
-                            viewSchema defs ( w + 10, y ) Nothing items_
+                            viewSchema visited defs ( w + 10, y ) Nothing "700" items_
 
                 graphs =
                     [ arrayGraph, itemsGraphs ]
-
-                -- viewMaybeSchema =
-                --     -- List.map (viewSchema defs ( w + 10, y ) Nothing) items
-                --     List.Extra.scanl (\g ( _, y_ ) -> viewSchema defs ( w_, y_ + 10 ) Nothing) items
             in
-            ( graphs, newCoords )
+            ( graphs, ( iw, Basics.max h ih ) )
                 |> toSvgCoordsTuple
 
         -- case viewMaybeSchema of
@@ -209,72 +211,54 @@ viewSchema defs (( x, y ) as coords) name schema =
         --     Just ( g, c ) ->
         --         ( Svg.g [] [ arrayGraph, g ], c )
         Schema.String { title } ->
-            viewString coords name
+            viewString weight coords name
 
         Schema.Integer { title } ->
-            viewInteger coords name
+            viewInteger weight coords name
 
         Schema.Number { title } ->
-            viewFloat coords name
+            viewFloat weight coords name
 
         Schema.Boolean { title } ->
-            viewBool coords name
+            viewBool weight coords name
 
         Schema.Null { title } ->
             viewMaybeTitle coords "Null" name
 
         Schema.Ref { title, ref } ->
             let
-                refName =
-                    String.dropLeft 14 ref
+                defName =
+                    extractRefName ref
 
-                rname =
-                    "< " ++ refName ++ " >"
+                isCycle =
+                    isCircularRef visited ref
 
-                t =
-                    Maybe.map (\a -> a ++ " | < " ++ refName ++ " >") name
-                        |> Maybe.withDefault rname
-
-                ( iconGraph_, ( w, h ) ) =
-                    iconRect (IRef refName) name ( x, y )
-
-                refGraph =
-                    Dict.get ref defs
-                        |> Maybe.map (\_ -> roundRect ref ( w + 10, y ))
-
-                -- |> Maybe.map (viewSchema defs ( w + 10, y ) Nothing)
-                -- refGraph =
-                --     Dict.get ref defs
-                --         |> Maybe.map (viewSchema defs ( w + 10, y ) Nothing)
+                label =
+                    refLabel defName isCycle
             in
-            case refGraph of
-                Nothing ->
-                    ( iconGraph_, ( w, h ) )
-
-                Just ( g, c ) ->
-                    ( Svg.g [] [ iconGraph_, g ], c )
+            iconRect (IRef "*") (Just label) weight ( x, y )
 
         Schema.OneOf { title, subSchemas } ->
-            viewMulti defs ( x, y ) "|1|" name subSchemas
+            viewMulti visited defs ( x, y ) "|1|" name subSchemas
 
         Schema.AnyOf { title, subSchemas } ->
-            viewMulti defs ( x, y ) "|o|" name subSchemas
+            viewMulti visited defs ( x, y ) "|o|" name subSchemas
 
         Schema.AllOf { title, subSchemas } ->
-            viewMulti defs ( x, y ) "(&)" name subSchemas
+            viewMulti visited defs ( x, y ) "(&)" name subSchemas
 
         Schema.Fallback _ ->
             ( Svg.g [] [], coords )
 
 
-viewMulti : Definitions -> Coordinates -> String -> Maybe Name -> List Schema -> ( Svg msg, Dimensions )
-viewMulti defs ( x, y ) icon _ schemas =
+viewMulti : Set String -> Definitions -> Coordinates -> String -> Maybe Name -> List Schema -> ( Svg msg, Dimensions )
+viewMulti visited defs ( x, y ) icon _ schemas =
     let
         ( choiceGraph, ( w, h ) ) =
             roundRect icon ( x, y )
 
         ( subSchemaGraphs, newCoords ) =
-            viewItems defs ( w + 10, y ) schemas
+            viewItems visited defs ( w + 10, y ) schemas
 
         allOfGraph =
             choiceGraph :: subSchemaGraphs
@@ -315,24 +299,24 @@ viewMaybeTitle coords s mTitle =
 --     iconRect IFile name coords
 
 
-viewBool : Coordinates -> Maybe String -> ( Svg msg, Dimensions )
-viewBool coords name =
-    iconRect IBool name coords
+viewBool : String -> Coordinates -> Maybe String -> ( Svg msg, Dimensions )
+viewBool weight coords name =
+    iconRect IBool name weight coords
 
 
-viewFloat : Coordinates -> Maybe String -> ( Svg msg, Dimensions )
-viewFloat coords name =
-    iconRect IFloat name coords
+viewFloat : String -> Coordinates -> Maybe String -> ( Svg msg, Dimensions )
+viewFloat weight coords name =
+    iconRect IFloat name weight coords
 
 
-viewInteger : Coordinates -> Maybe String -> ( Svg msg, Dimensions )
-viewInteger coords name =
-    iconRect IInt name coords
+viewInteger : String -> Coordinates -> Maybe String -> ( Svg msg, Dimensions )
+viewInteger weight coords name =
+    iconRect IInt name weight coords
 
 
-viewString : Coordinates -> Maybe String -> ( Svg msg, Dimensions )
-viewString coords name =
-    iconRect IStr name coords
+viewString : String -> Coordinates -> Maybe String -> ( Svg msg, Dimensions )
+viewString weight coords name =
+    iconRect IStr name weight coords
 
 
 
@@ -356,26 +340,31 @@ viewString coords name =
 --             ( graph, newCoords )
 
 
-viewProperty defs coords objectProperty =
+viewProperty : Set String -> Definitions -> Coordinates -> Schema.ObjectProperty -> ( Svg msg, Dimensions )
+viewProperty visited defs coords objectProperty =
     let
-        ( name, property ) =
+        ( name, property, isRequired ) =
             case objectProperty of
                 Schema.Required name_ property_ ->
-                    ( name_, property_ )
+                    ( name_, property_, True )
 
                 Schema.Optional name_ property_ ->
-                    ( name_, property_ )
+                    ( name_, property_, False )
+
+        weight =
+            fontWeightForRequired isRequired
 
         ( schemaGraph, newCoords ) =
-            viewSchema defs coords (Just name) property
+            viewSchema visited defs coords (Just name) weight property
     in
     ( Svg.g [] [ schemaGraph ], newCoords )
 
 
-viewArrayItem defs coords schema =
+viewArrayItem : Set String -> Definitions -> Coordinates -> Schema -> ( Svg msg, Dimensions )
+viewArrayItem visited defs coords schema =
     let
         ( schemaGraph, newCoords ) =
-            viewSchema defs coords Nothing schema
+            viewSchema visited defs coords Nothing "700" schema
     in
     ( Svg.g [] [ schemaGraph ], newCoords )
 
@@ -471,8 +460,8 @@ type Icon
     | IRef String
 
 
-iconRect : Icon -> Maybe String -> Coordinates -> ( Svg msg, Dimensions )
-iconRect icon txt ( x, y ) =
+iconRect : Icon -> Maybe String -> String -> Coordinates -> ( Svg msg, Dimensions )
+iconRect icon txt weight ( x, y ) =
     let
         space =
             10
@@ -484,7 +473,7 @@ iconRect icon txt ( x, y ) =
             separatorGraph ( iconW + space, y )
 
         mNameG =
-            Maybe.map (viewNameGraph ( separatorW + space, y )) txt
+            Maybe.map (viewNameGraph weight ( separatorW + space, y )) txt
 
         ( graphs, rectWidth ) =
             case mNameG of
@@ -526,8 +515,8 @@ iconRect icon txt ( x, y ) =
     ( el, ( rectWidth + x, 28 + y ) )
 
 
-viewNameGraph : Coordinates -> String -> ( Svg msg, Dimensions )
-viewNameGraph ( x, y ) name =
+viewNameGraph : String -> Coordinates -> String -> ( Svg msg, Dimensions )
+viewNameGraph weight ( x, y ) name =
     let
         tt =
             computeVerticalText y
@@ -550,7 +539,7 @@ viewNameGraph ( x, y ) name =
                     , fg
                     , SvgA.fontFamily "Monospace"
                     , SvgA.fontSize "12"
-                    , SvgA.fontWeight "700"
+                    , SvgA.fontWeight weight
                     , SvgA.dominantBaseline "middle"
                     , SvgA.cursor "pointer"
                     ]
@@ -621,7 +610,7 @@ iconGraph icon coords =
             iconGeneric coords "{..}"
 
         IInt ->
-            viewNameGraph coords "I"
+            viewNameGraph "700" coords "I"
 
         IStr ->
             iconGeneric coords "S"
@@ -639,7 +628,7 @@ iconGraph icon coords =
             iconGeneric coords "F"
 
         IRef s ->
-            iconGeneric coords ("*" ++ s)
+            iconGeneric coords s
 
 
 iconGeneric : Coordinates -> String -> ( Svg msg, Dimensions )
@@ -664,7 +653,7 @@ iconGeneric ( x, y ) iconStr =
         attrs =
             [ SvgA.x (String.fromFloat mt)
             , SvgA.y (String.fromFloat tt)
-            , Debug.log "text color" fg
+            , fg
             , SvgA.fontFamily "Monospace"
             , SvgA.fontSize "12"
             , SvgA.dominantBaseline "middle"
@@ -705,9 +694,8 @@ computeVerticalText y =
 
 
 color r g b =
-    Color.rgb (Debug.log "red" r) g b
+    Color.rgb r g b
         |> Color.Convert.colorToHex
-        |> Debug.log "color"
 
 
 lightClr =
@@ -717,6 +705,41 @@ lightClr =
 darkClr =
     color 57 114 206
 
+
+viewBoxString : Float -> Float -> Float -> String
+viewBoxString w h padding =
+    "0 0 "
+        ++ String.fromFloat (w + padding)
+        ++ " "
+        ++ String.fromFloat (h + padding)
+
+
+extractRefName : String -> String
+extractRefName ref =
+    String.dropLeft 14 ref
+
+
+isCircularRef : Set String -> String -> Bool
+isCircularRef visited ref =
+    Set.member ref visited
+
+
+refLabel : String -> Bool -> String
+refLabel name isCycle =
+    if isCycle then
+        name ++ " ↺"
+
+    else
+        name
+
+
+fontWeightForRequired : Bool -> String
+fontWeightForRequired isRequired =
+    if isRequired then
+        "700"
+
+    else
+        "400"
 
 
 --
