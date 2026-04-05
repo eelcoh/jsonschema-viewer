@@ -173,13 +173,13 @@ viewSchema visited defs (( x, y ) as coords) name weight schema =
                 ( objectGraph, ( w, h ) ) =
                     iconRect IObject name weight coords
 
-                ( propertiesGraphs, newCoords ) =
+                ( propertiesGraphs, ( pw, ph ) ) =
                     viewProperties visited defs ( w + 10, y ) properties
 
                 graphs =
                     objectGraph :: propertiesGraphs
             in
-            ( graphs, newCoords )
+            ( graphs, ( pw, Basics.max h ph ) )
                 |> toSvgCoordsTuple
 
         Schema.Array { title, items } ->
@@ -191,7 +191,7 @@ viewSchema visited defs (( x, y ) as coords) name weight schema =
                 ( arrayGraph, ( w, h ) ) =
                     iconRect IList name weight coords
 
-                ( itemsGraphs, newCoords ) =
+                ( itemsGraphs, ( iw, ih ) ) =
                     case items of
                         Nothing ->
                             roundRect "*" ( w + 10, y )
@@ -201,12 +201,8 @@ viewSchema visited defs (( x, y ) as coords) name weight schema =
 
                 graphs =
                     [ arrayGraph, itemsGraphs ]
-
-                -- viewMaybeSchema =
-                --     -- List.map (viewSchema defs ( w + 10, y ) Nothing) items
-                --     List.Extra.scanl (\g ( _, y_ ) -> viewSchema defs ( w_, y_ + 10 ) Nothing) items
             in
-            ( graphs, newCoords )
+            ( graphs, ( iw, Basics.max h ih ) )
                 |> toSvgCoordsTuple
 
         -- case viewMaybeSchema of
