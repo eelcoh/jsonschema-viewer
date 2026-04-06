@@ -68,10 +68,12 @@ viewProperties :
     -> Set String
     -> (String -> msg)
     -> String
+    -> Float
+    -> Float
     -> Coordinates
     -> List Schema.ObjectProperty
     -> ( List (Svg msg), Coordinates )
-viewProperties visited defs collapsedNodes toggleMsg path coords props =
+viewProperties visited defs collapsedNodes toggleMsg path parentRightX parentY coords props =
     let
         ( g, ( _, h ), w ) =
             viewProps coords props
@@ -86,13 +88,18 @@ viewProperties visited defs collapsedNodes toggleMsg path coords props =
                         ( g_, ( w1, h1 ) ) =
                             viewProperty visited defs collapsedNodes toggleMsg path coords_ element
 
+                        connector =
+                            connectorPath
+                                ( parentRightX, parentY + 14 )
+                                ( x, y + 14 )
+
                         ( gs, ( w2, h2 ), w3 ) =
                             viewProps ( x, h1 + 10 ) elements
 
                         maxW =
                             List.foldl Basics.max w1 [ w1, w2, w3 ]
                     in
-                    ( g_ :: gs, ( x, h2 ), maxW )
+                    ( connector :: g_ :: gs, ( x, h2 ), maxW )
     in
     ( g, ( w, h ) )
 
@@ -103,10 +110,12 @@ viewItems :
     -> Set String
     -> (String -> msg)
     -> String
+    -> Float
+    -> Float
     -> Coordinates
     -> List Schema
     -> ( List (Svg msg), Coordinates )
-viewItems visited defs collapsedNodes toggleMsg path coords items =
+viewItems visited defs collapsedNodes toggleMsg path parentRightX parentY coords items =
     let
         ( g, ( _, h ), w ) =
             viewItems_ 0 coords items
@@ -124,13 +133,18 @@ viewItems visited defs collapsedNodes toggleMsg path coords items =
                         ( g_, ( w1, h1 ) ) =
                             viewArrayItem visited defs collapsedNodes toggleMsg itemPath coords_ element
 
+                        connector =
+                            connectorPath
+                                ( parentRightX, parentY + 14 )
+                                ( x, y + 14 )
+
                         ( gs, ( w2, h2 ), w3 ) =
                             viewItems_ (idx + 1) ( x, h1 + 10 ) elements
 
                         maxW =
                             List.foldl Basics.max w1 [ w1, w2, w3 ]
                     in
-                    ( g_ :: gs, ( x, h2 ), maxW )
+                    ( connector :: g_ :: gs, ( x, h2 ), maxW )
     in
     ( g, ( w, h ) )
 
@@ -199,7 +213,7 @@ viewSchema visited defs collapsedNodes toggleMsg path (( x, y ) as coords) name 
             else
                 let
                     ( propertiesGraphs, ( pw, ph ) ) =
-                        viewProperties visited defs collapsedNodes toggleMsg path ( w + 10, y ) properties
+                        viewProperties visited defs collapsedNodes toggleMsg path w y ( w + 10, y ) properties
 
                     graphs =
                         objectGraph :: propertiesGraphs
@@ -226,8 +240,11 @@ viewSchema visited defs collapsedNodes toggleMsg path (( x, y ) as coords) name 
                             Just items_ ->
                                 viewSchema visited defs collapsedNodes toggleMsg (path ++ ".items") ( w + 10, y ) Nothing "700" items_
 
+                    itemConnector =
+                        connectorPath ( w, y + 14 ) ( w + 10, y + 14 )
+
                     graphs =
-                        [ arrayGraph, itemsGraph ]
+                        [ arrayGraph, itemConnector, itemsGraph ]
                 in
                 ( graphs, ( iw, Basics.max h ih ) )
                     |> toSvgCoordsTuple
@@ -301,7 +318,7 @@ viewMulti visited defs collapsedNodes toggleMsg path ( x, y ) icon _ schemas =
     else
         let
             ( subSchemaGraphs, newCoords ) =
-                viewItems visited defs collapsedNodes toggleMsg path ( w + 10, y ) schemas
+                viewItems visited defs collapsedNodes toggleMsg path w y ( w + 10, y ) schemas
 
             allOfGraph =
                 choiceGraph :: subSchemaGraphs
