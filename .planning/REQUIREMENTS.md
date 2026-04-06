@@ -29,8 +29,8 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Visual
 
-- [ ] **VIS-01**: Connector lines link parent nodes to their child properties
-- [ ] **VIS-02**: `$ref` nodes have a distinct visual style (e.g., dashed border or link icon) distinguishing them from inline schemas
+- [x] **VIS-01**: Connector lines link parent nodes to their child properties
+- [x] **VIS-02**: `$ref` nodes have a distinct visual style (e.g., dashed border or link icon) distinguishing them from inline schemas
 
 ## v2 Requirements
 
@@ -74,8 +74,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | REND-02 | Phase 2 | Complete |
 | REND-03 | Phase 2 | Complete |
 | INTR-01 | Phase 3 | Complete |
-| VIS-01 | Phase 4 | Pending |
-| VIS-02 | Phase 4 | Pending |
+| VIS-01 | Phase 4 | Complete |
+| VIS-02 | Phase 4 | Complete |
 
 **Coverage:**
 - v1.0 requirements: 10 total

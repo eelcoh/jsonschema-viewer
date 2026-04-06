@@ -15,7 +15,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [ ] **Phase 1: Foundation and Input** - Remove build blockers and wire up user-controlled schema input
 - [ ] **Phase 2: Correct Rendering** - Fix SVG viewport, $ref inline expansion, and required/optional distinction
 - [ ] **Phase 3: Expand/Collapse** - Make schema nodes interactively collapsible and expandable
-- [ ] **Phase 4: Visual Polish** - Add connector lines and distinct visual styles for $ref nodes
+- [x] **Phase 4: Visual Polish** - Add connector lines and distinct visual styles for $ref nodes (completed 2026-04-06)
 
 ## Phase Details
 
@@ -82,4 +82,4 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 | 1. Foundation and Input | 1/2 | In Progress|  |
 | 2. Correct Rendering | 1/2 | In Progress|  |
 | 3. Expand/Collapse | 2/2 | In Progress|  |
-| 4. Visual Polish | 0/TBD | Not started | - |
+| 4. Visual Polish | 1/1 | Complete   | 2026-04-06 |

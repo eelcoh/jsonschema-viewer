@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: executing
-stopped_at: Phase 4 UI-SPEC approved
-last_updated: "2026-04-05T19:20:40.667Z"
-last_activity: 2026-04-05
+status: verifying
+stopped_at: "Completed 04-01-PLAN.md tasks 1-2; checkpoint:human-verify pending"
+last_updated: "2026-04-06T09:16:05.421Z"
+last_activity: 2026-04-06
 progress:
   total_phases: 4
-  completed_phases: 3
-  total_plans: 6
-  completed_plans: 6
+  completed_phases: 4
+  total_plans: 7
+  completed_plans: 7
   percent: 0
 ---
 
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-03)
 
 **Core value:** Users can visually navigate and understand the structure of any JSON Schema document through an interactive SVG diagram with expandable/collapsible nodes.
-**Current focus:** Phase 02 — correct-rendering
+**Current focus:** Phase 04 — visual-polish
 
 ## Current Position
 
-Phase: 4
-Plan: Not started
-Status: Ready to execute
-Last activity: 2026-04-05
+Phase: 04 (visual-polish) — EXECUTING
+Plan: 1 of 1
+Status: Phase complete — ready for verification
+Last activity: 2026-04-06
 
 Progress: [░░░░░░░░░░] 0%
 
@@ -56,6 +56,7 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 01-foundation-and-input P02 | 99 | 1 tasks | 2 files |
 | Phase 02-correct-rendering P01 | 5 | 2 tasks | 4 files |
 | Phase 03-expand-collapse P01 | 15 | 2 tasks | 3 files |
+| Phase 04-visual-polish P01 | 110 | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -72,6 +73,9 @@ No decisions logged yet. See PROJECT.md Key Decisions table.
 - [Phase 03-expand-collapse]: toggleInSet exported from Render.Svg so Main.elm can reuse without reimplementing
 - [Phase 03-expand-collapse]: clickableGroup wraps stopPropagationOn to prevent event bubbling from nested containers
 - [Phase 03-expand-collapse]: Ref expansion: cycle pill not clickable; collapsed shows label; expanded renders inline with visited-set guard
+- [Phase 04-visual-polish]: connectorPathD exposed from module for testability; connectorPath is the SVG emitter
+- [Phase 04-visual-polish]: dashAttrs pattern used to conditionally apply strokeDasharray to IRef icon rects
+- [Phase 04-visual-polish]: viewProperties and viewItems take parentRightX parentY before coords for connector origin
 
 ### Pending Todos
 
@@ -84,6 +88,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-05T19:20:40.664Z
-Stopped at: Phase 4 UI-SPEC approved
-Resume file: .planning/phases/04-visual-polish/04-UI-SPEC.md
+Last session: 2026-04-06T09:16:05.418Z
+Stopped at: Completed 04-01-PLAN.md tasks 1-2; checkpoint:human-verify pending
+Resume file: None
