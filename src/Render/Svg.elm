@@ -1,4 +1,4 @@
-module Render.Svg exposing (view, viewBoxString, extractRefName, isCircularRef, refLabel, fontWeightForRequired, toggleInSet)
+module Render.Svg exposing (view, viewBoxString, extractRefName, isCircularRef, refLabel, fontWeightForRequired, toggleInSet, connectorPathD)
 
 import Color exposing (gray)
 import Color.Convert
@@ -540,18 +540,28 @@ iconRect icon txt weight ( x, y ) =
             lightClr
                 |> SvgA.stroke
 
+        dashAttrs =
+            case icon of
+                IRef _ ->
+                    [ SvgA.strokeDasharray "5 3" ]
+
+                _ ->
+                    []
+
         rct =
             Svg.rect
-                [ SvgA.x (String.fromFloat x)
-                , SvgA.y (String.fromFloat y)
-                , SvgA.width wRect
-                , SvgA.height "28"
-                , bg
-                , border
-                , SvgA.strokeWidth "0.2"
-                , SvgA.rx "2"
-                , SvgA.ry "2"
-                ]
+                ([ SvgA.x (String.fromFloat x)
+                 , SvgA.y (String.fromFloat y)
+                 , SvgA.width wRect
+                 , SvgA.height "28"
+                 , bg
+                 , border
+                 , SvgA.strokeWidth "0.2"
+                 , SvgA.rx "2"
+                 , SvgA.ry "2"
+                 ]
+                    ++ dashAttrs
+                )
                 []
 
         el =
@@ -750,6 +760,42 @@ lightClr =
 
 darkClr =
     color 57 114 206
+
+
+connectorPathD : Coordinates -> Coordinates -> String
+connectorPathD ( startX, startY ) ( endX, endY ) =
+    let
+        hOffset =
+            (endX - startX) * 0.5
+    in
+    "M "
+        ++ String.fromFloat startX
+        ++ " "
+        ++ String.fromFloat startY
+        ++ " C "
+        ++ String.fromFloat (startX + hOffset)
+        ++ " "
+        ++ String.fromFloat startY
+        ++ " "
+        ++ String.fromFloat (endX - hOffset)
+        ++ " "
+        ++ String.fromFloat endY
+        ++ " "
+        ++ String.fromFloat endX
+        ++ " "
+        ++ String.fromFloat endY
+
+
+connectorPath : Coordinates -> Coordinates -> Svg msg
+connectorPath start end =
+    Svg.path
+        [ SvgA.d (connectorPathD start end)
+        , SvgA.stroke "#8baed6"
+        , SvgA.strokeWidth "1.5"
+        , SvgA.strokeLinecap "round"
+        , SvgA.fill "none"
+        ]
+        []
 
 
 viewBoxString : Float -> Float -> Float -> String
