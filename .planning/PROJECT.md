@@ -30,6 +30,8 @@ Users can visually navigate and understand the structure of any JSON Schema docu
 - Interactive expand/collapse of schema nodes — Validated in Phase 3: Expand/Collapse
 - Proper `$ref` resolution and inline rendering — Validated in Phase 3: Expand/Collapse
 - Combinator schema visualization (oneOf/anyOf/allOf) — Validated in Phase 2: Correct Rendering
+- Connector lines between parent and child nodes — Validated in Phase 4: Visual Polish
+- Distinct dashed-border styling for $ref nodes — Validated in Phase 4: Visual Polish
 
 ### Active
 
@@ -87,4 +89,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-04-05 after Phase 3 (Expand/Collapse) completion*
+*Last updated: 2026-04-06 after Phase 4 (Visual Polish) completion*
