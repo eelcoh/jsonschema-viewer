@@ -18,6 +18,18 @@ Shipped v1.0. The app is a fully functional interactive JSON Schema viewer:
 - Interactive expand/collapse with `$ref` inline expansion and cycle detection
 - Cubic bezier connector lines and dashed `$ref` borders
 
+## Current Milestone: v1.1 Professional Visuals
+
+**Goal:** Transform the diagram from a proof-of-concept look into a professional blueprint-style technical diagram with richer schema information and broader format support.
+
+**Target features:**
+- Blueprint/technical visual style — outlined nodes, type-based color coding, light background, structured connectors
+- Refined node design — proper proportions, icon/label separation, consistent padding, rounded corners
+- Better typography — font sizing hierarchy, monospace labels, readable descriptions
+- Improved layout & spacing — consistent tree alignment, breathing room between nodes
+- Information density — show descriptions, constraints (min/max, pattern), enum values, format annotations on nodes
+- Decoder fixes — `$defs` support (JSON Schema 2020-12), handle combined type+combinator schemas
+
 ## Requirements
 
 ### Validated
@@ -71,4 +83,4 @@ Shipped v1.0. The app is a fully functional interactive JSON Schema viewer:
 This document evolves at phase transitions and milestone boundaries.
 
 ---
-*Last updated: 2026-04-06 after v1.0 milestone*
+*Last updated: 2026-04-06 after v1.1 milestone start*
