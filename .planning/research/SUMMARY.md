@@ -1,169 +1,172 @@
 # Project Research Summary
 
-**Project:** JSON Schema Viewer — Interactive SVG Diagram
-**Domain:** Browser-based schema visualization tool (Elm 0.19.1)
-**Researched:** 2026-04-03
+**Project:** JSON Schema Viewer v1.1 — Professional Visuals
+**Domain:** Elm 0.19.1 SVG Schema Visualization
+**Researched:** 2026-04-09
 **Confidence:** HIGH
 
 ## Executive Summary
 
-This is a working proof-of-concept Elm application that renders JSON Schema documents as SVG tree diagrams. The core rendering pipeline is sound — the coordinate-threading pattern (`(Svg msg, Dimensions)` return convention), the schema type model, and the draft-07 decoder are all in place. What it lacks is user-facing interactivity: schemas are hardcoded, the SVG viewport is clipped, `$ref` nodes do not expand, and there is no way to collapse large subtrees. The app functions as a demo, not a tool.
+This is a v1.1 visual upgrade of a working Elm SVG schema viewer. The existing codebase (1,806 lines across 4 modules) has clean architecture but hardcoded visual constants, no color differentiation between schema types, and no rendering of rich metadata that is already decoded in the model (descriptions, constraints, format, enum). The research confirms that zero new dependencies are needed — every required SVG capability (gradients, filters, markers, clip paths, embedded CSS) is already available in `elm/svg 1.0.1`, and the installed color packages (`avh4/elm-color`, `noahzgordon/elm-color-extra`) cover the entire palette management requirement.
 
-The recommended approach is to evolve the existing architecture incrementally rather than rewrite it. Only one new package is needed (`elm/file` for file upload). The largest architectural change is upgrading `Browser.sandbox` to `Browser.element` — a low-risk, isolated migration that unlocks everything else. After that, the work proceeds in a clear dependency order: clean up Debug calls, wire up user input, fix the SVG viewport, then add correctness features ($ref expansion), then interactivity (collapse/expand nodes), then visual polish (connector lines, required/optional distinction, format annotations).
+The recommended approach is a staged visual overhaul: fix the two decoder gaps first (they are independent and unblock testing with modern schemas), then extract a `Render.Theme` module to centralize all style constants before touching any visual values, then apply blueprint aesthetic and type-based color coding, and finally add information density (description, constraints, format badges) after the layout coordinate system is stabilized. The single highest-risk task is multi-line variable-height nodes, which require a `NodeLayout`/`NodeMetrics` refactor touching every connector anchor point in the renderer.
 
-The primary risks are well-understood and have clear mitigations. The three most important are: (1) `Debug.log` calls in `Render/Svg.elm` that block production builds and must be removed first; (2) circular `$ref` in real-world schemas that will cause infinite recursion if inline `$ref` expansion is implemented without a visited-set guard; and (3) non-unique property names that make expand/collapse state incorrect unless path-based node keys (not name-based keys) are used from the start. All three are preventable by doing the work in the right order with the right data structures.
+The key risk is the `pillHeight = 28` constant, which is implicitly embedded in at least 9 code locations across `roundRect`, `iconRect`, `viewProperties`, `viewItems`, `viewNameGraph`, `separatorGraph`, `iconGeneric`, and `computeVerticalText`. Making any multi-line node changes without first extracting a `NodeLayout` record will produce silently misaligned connectors and overlapping nodes. All other risks are low: decoder fixes are isolated to two functions, and Theme extraction is a mechanical refactor with no behavior change.
 
 ## Key Findings
 
 ### Recommended Stack
 
-The existing stack (elm/core, elm/browser, elm/html, elm/svg, elm/json, NoRedInk/elm-json-decode-pipeline, avh4/elm-color, noahzgordon/elm-color-extra, elm-community/list-extra) is complete and sufficient. The Elm 0.19.1 ecosystem is frozen and stable — no package versions will change. The only addition required is `elm/file 1.0.5` for the file upload feature. All other new capabilities (SVG click events via `Svg.Events`, textarea input via `elm/html`, expand/collapse state via `elm/core` Set) are already available in packages already present.
+No changes to `elm.json`. The existing stack is sufficient for every v1.1 goal. `elm/svg 1.0.1` exposes the full SVG 1.1 spec including `Svg.defs`, `Svg.linearGradient`, `Svg.filter`, `Svg.feGaussianBlur`, `Svg.feOffset`, `Svg.feMerge`, `Svg.clipPath`, `Svg.marker`, and `Svg.style`. Drop shadows, gradients, hover transitions, and type-based coloring are all achievable with what is installed.
+
+Two new Elm modules should be created (`Render.Theme`, `Render.Node`) — these are code organization changes, not package additions. `elm-tree-diagram` and `typed-svg` were evaluated and rejected: both require significant migration effort with no capability gain over the existing coordinate-threading pattern.
 
 **Core technologies:**
-- `elm/browser 1.0.2`: Application entry point — upgrade `Browser.sandbox` to `Browser.element` to unlock Cmd/Sub and user input
-- `elm/svg 1.0.1`: SVG rendering and click events via `Svg.Events.onClick` — already present, no changes to package
-- `elm/file 1.0.5`: File picker and file-as-string reading — the only new package needed (`elm install elm/file`)
-- `elm/core 1.0.4`: `Set NodePath` for expand/collapse state, `Dict` for definitions lookup — already present
-- `NoRedInk/elm-json-decode-pipeline 1.0.0`: Decoder ergonomics — no changes needed
+- `elm/svg 1.0.1`: SVG rendering — full SVG 1.1 spec, no gaps for v1.1 goals
+- `avh4/elm-color` + `noahzgordon/elm-color-extra`: Color palette and hex conversion — already installed, handles all palette work
+- `Render.Theme` (new module): Central visual config, type-to-color mapping using Okabe-Ito colorblind-safe palette
+- `Render.Node` (new module): Measure-then-render split for variable-height pills
+- `fontSize * 0.6` ratio: Font width approximation — reliable for ASCII monospace, no ports needed
 
 ### Expected Features
 
-Reference tools (Altova XMLSpy, Liquid XML Studio, Oxygen XML Editor) establish clear conventions: nodes are individually collapsible, required vs optional fields are visually distinguished, type icons are on every node, connector lines show parent-child relationships, `$ref` targets resolve inline, and combinators (oneOf/anyOf/allOf) appear as distinct intermediate nodes.
-
 **Must have (table stakes):**
-- User can paste or upload their own JSON Schema — without this the app has zero utility for real users
-- Dynamic SVG viewport — the hardcoded 520x520 clips every real-world schema
-- Required vs optional property distinction — `ObjectProperty` is already decoded correctly but not rendered differently
-- `$ref` nodes expand inline — a `$ref` that shows only a label is not a diagram
-- All schema nodes render with type icons — Null branch currently bypasses the icon system
-- Error display for invalid JSON — already basically working, minor polish only
+- Type-based color coding — every professional schema tool does this; current monochrome pills look prototypal
+- Blueprint dark background (`#1a2332` range) — sets contrast requirements for all other colors
+- Description display — already decoded on all schema types via `BaseSchema.description`; currently not rendered
+- Constraint display — `minLength`/`maxLength`, `minimum`/`maximum`, `pattern`, `format` already in model
+- Required vs optional visual distinction — bold weight alone is insufficient at small sizes; needs asterisk or badge
+- `$defs` support — JSON Schema 2020-12 schemas from TypeBox, Zod, Ajv use `$defs`; currently silently broken
 
-**Should have (competitive differentiators):**
-- Collapse/expand individual nodes — essential for navigating schemas with 20+ properties
-- Connector lines between parent and child nodes — makes tree structure unambiguous
-- Description tooltip via SVG `<title>` — `description` is decoded on every type but never shown
-- Format annotation on string nodes — `StringFormat` is decoded but not rendered
-- Distinct visual style for `$ref` nodes vs inline nodes — dashed border vs solid
+**Should have (differentiators):**
+- Type-colored connector lines — trivial once color palette exists; no other schema tool does this
+- Format badges — `StringFormat` already decoded; low effort, high semantic value
+- Collapse indicator with child count badge — low effort, high information scent
+- Enum value display — already decoded; needs compact `{val1|val2}` notation
 
-**Defer to v2+:**
-- Pan and zoom — requires JS interop or complex SVG transform handling
-- Cardinality annotations on connectors — data is decoded; adds visual noise before diagram is otherwise clean
-- Enum value display — needs design thought about layout overflow
-- Search/filter within diagram — useful but second-order
+**Defer (v2+):**
+- Expanded node cards (full progressive disclosure) — highest complexity; may surface unexpected coordinate-threading issues
+- Multi-schema cross-referencing — out of scope for single-document viewer
+- Animated transitions — technical users prefer speed; SVG animation in Elm requires ports or animation frames
 
 ### Architecture Approach
 
-The three-layer module structure (`Json.Schema`, `Json.Schema.Decode`, `Render.Svg`) is the right shape and should be preserved. The key change to `Render.Svg` is threading two new parameters through all view functions: `expandState : Set NodePath` (read-only, checked at each expandable node) and `path : NodePath` (the address of the current node, accumulated as recursion descends). A new `Diagram.NodePath` module should be extracted to isolate path construction rules and make them testable. `Main.elm` gains a proper `Model` record holding raw input, parse result, and expand state.
+The codebase follows a clean three-layer architecture: `Json.Schema` (pure types), `Json.Schema.Decode` (JSON to model), `Render.Svg` (model to SVG). The coordinate-threading pattern — where every render function returns `(Svg msg, Dimensions)` — is well-suited to the domain and should be kept. The main architectural change for v1.1 is extracting style constants into `Render.Theme` and splitting single-node rendering into `Render.Node` with a measure-before-render contract.
 
 **Major components:**
-1. `Main.elm` — App shell, Model, Msg, update loop, input UI (textarea + file button); migrates to `Browser.element`
-2. `Json.Schema` + `Json.Schema.Decode` — Type definitions and decoder; no changes needed
-3. `Render.Svg` — SVG layout and rendering; significant changes for expand/collapse and `$ref` expansion
-4. `Diagram.NodePath` (new) — Path construction, stable node identity, path-to-string serialization
+1. `Json.Schema` + `Json.Schema.Decode` — Add `$defs` decoder support and optional `ObjectWithCombinator` variant; otherwise unchanged
+2. `Render.Theme` (NEW) — `Theme` record with all visual constants; `default` blueprint value; `nodeColor : Theme -> Icon -> String` mapping
+3. `Render.Node` (NEW) — `NodeContent`, `NodeMetrics`, `nodeContentFromSchema`, `measure`, `render`; provides accurate `anchorY` for connector attachment
+4. `Render.Svg` (MODIFIED) — Thread `Theme`/`RenderContext`, delegate pill rendering to `Render.Node`, keep coordinate-threading for tree layout
 
 ### Critical Pitfalls
 
-1. **Debug.log blocks production builds** — `elm make --optimize` rejects any `Debug.log` call with a hard compiler error. Three calls exist in `Render/Svg.elm` now. Remove them before touching anything else. This is a pre-condition for all other phases.
+1. **Variable-height nodes break coordinate-threading** — `pillHeight = 28` is embedded in 9+ locations; extract `NodeLayout` record with `height`, `centerY`, `textBaselineY`, `connectorY` before any multi-line work; changing height in one place without updating all breaks connectors silently with no runtime error
 
-2. **Circular `$ref` causes infinite recursion** — Real-world OpenAPI specs contain self-referential definitions. Inline `$ref` expansion without a visited-set guard (`Set String` of currently-expanded ref keys) will stack-overflow the browser. Thread the visited set as a parameter in `viewSchema` and render a stub when a ref key is already in the set.
+2. **Decoder oneOf ordering regression** — `objectDecoder` matches `{"type": "object"}` before combined object+combinator decoders; add `objectWithOneOfDecoder`/`objectWithAnyOfDecoder`/`objectWithAllOfDecoder` BEFORE plain `objectDecoder`; combined decoders must precede their components
 
-3. **Non-unique property names break expand/collapse** — Property names like `name`, `id`, `type` appear at multiple depths. Keying expand state by local name causes one toggle to affect all nodes with the same name. Use path-based keys (`List String` like `["properties", "address", "properties", "city"]`) from the start — retrofitting this is painful.
+3. **`extractRefName` hardcodes prefix length** — `String.dropLeft 14` is correct for `#/definitions/` (14 chars) but produces `efs/Foo"` for `#/$defs/` (8 chars); replace with `startsWith` guards for both prefixes
 
-4. **Collapsed nodes must return correct dimensions** — The coordinate-threading pattern breaks if a collapsed node returns full-expanded dimensions for its children. Every collapsible branch must return only `pillHeight` when collapsed. The render path and the dimension return must be updated simultaneously.
+4. **Color system without central Theme becomes unmaintainable** — `darkClr` and `lightClr` are referenced in 6+ functions; per-type colors added by branching inside render functions creates scattered logic; extract `Render.Theme` first, touch colors only through it
 
-5. **SVG click event bubbling** — Clicking a nested node fires both that node's handler and its parent's handler. Use `Html.Events.stopPropagationOn "click"` on every interactive node pill. Detect by testing two nested expandable objects.
+5. **Blueprint background requires full color audit** — `#3972CE` fill and `#e6e6e6` text were designed for a light background; on dark navy (`#1a2332`) all existing colors need WCAG AA contrast verification (4.5:1 for text, 3:1 for UI) before any new colors are added
 
 ## Implications for Roadmap
 
-Based on the dependency graph in research and the critical pitfalls, a 5-phase structure is recommended. Each phase compiles and produces visible value independently.
+The dependency graph from combined research dictates a 4-phase structure. Decoder fixes are independent of rendering. Theme extraction is prerequisite for all visual work. NodeLayout refactor is prerequisite for multi-line content. Information density features come last after layout is stable.
 
-### Phase 1: Foundation Cleanup and User Input
-**Rationale:** Every subsequent feature depends on a clean build and user-controlled input. `Debug.log` removal is a hard prerequisite for optimized builds. `Browser.element` migration is a hard prerequisite for user input. These should be one phase because both are isolated, low-risk changes that reset the codebase to a clean starting point.
-**Delivers:** App compiles cleanly under `--optimize`. Users can paste any JSON Schema (or upload a file) and see it rendered. Parse errors show a readable message.
-**Addresses:** "User can paste own schema" (table stakes), "Error display" (table stakes)
-**Avoids:** Pitfall 1 (Debug.log), Pitfall 5 (Browser.sandbox migration done in isolation)
-**Stack additions:** `elm install elm/file`
-**Files changed:** `Render/Svg.elm` (remove Debug), `Main.elm` (Browser.element, Model record, textarea, file input, SchemaInputChanged/FileRequested/FileSelected/FileLoaded msgs)
+### Phase 1: Decoder Fixes
 
-### Phase 2: Correct Rendering
-**Rationale:** Before adding interactivity, the renderer should be correct for all schema types. This means fixing the clipped SVG viewport, making `$ref` nodes expand inline, and ensuring Null/required/optional/format annotations render properly. These are all non-interactive correctness fixes that make the app produce accurate diagrams.
-**Delivers:** All JSON Schema constructs render correctly. Real-world schemas (Petstore Swagger) display without clipping. `$ref` definitions are visible inline. Required and optional properties look different.
-**Addresses:** Dynamic SVG viewport (table stakes), `$ref` inline expansion (table stakes), Required/optional distinction (table stakes), All type icons including Null (table stakes), Format annotation on strings (differentiator)
-**Avoids:** Pitfall 2 (circular `$ref` — add visited-set guard here), Pitfall 7 (fixed viewBox clips content)
-**Files changed:** `Render/Svg.elm` ($ref expansion with Set String guard, dynamic viewBox, Null icon fix, viewProperty required/optional distinction, StringFormat render)
+**Rationale:** Independent of all rendering changes; isolated to two functions (`definitionsDecoder`, `extractRefName`) with very low risk; unblocks testing with real-world modern schemas (TypeBox, Zod output) before visual work begins
 
-### Phase 3: Tree Interactivity (Expand/Collapse)
-**Rationale:** This is the highest-value interactive feature. It depends on Phase 1 (Browser.element for Cmd support, Model record for state) and Phase 2 (correct rendering before hiding/showing subtrees). It requires the new `Diagram.NodePath` module and `ExpandState` in Model before touching the renderer.
-**Delivers:** Users can collapse and expand any container node (Object, Array, OneOf/AnyOf/AllOf, Ref). Large schemas become navigable. Each toggled node correctly updates the layout.
-**Addresses:** Collapse/expand nodes (differentiator — highest value)
-**Avoids:** Pitfall 3 (path-based node keys — designed in from the start of this phase), Pitfall 4 (collapsed nodes return correct dimensions), Pitfall 6 (stopPropagationOn click), Pitfall 8 (recursive type alias — use `type` not `type alias` for any state tree)
-**Files new/changed:** `Diagram/NodePath.elm` (new), `Main.elm` (ExpandState in Model, ToggleNode msg), `Render/Svg.elm` (thread expandState+path through all view fns, onClick handlers, conditional child rendering, collapse indicator)
+**Delivers:** Correct rendering for JSON Schema 2020-12 schemas using `$defs`; foundation for optional `ObjectWithCombinator` variant
 
-### Phase 4: Visual Polish
-**Rationale:** With correct rendering and interactivity stable, visual enhancements can be layered on without risk of destabilizing the layout engine. Connector lines require knowing child positions — available from the coordinate-threading return values already in place. Description tooltips and expand-all/collapse-all are independent additions.
-**Delivers:** Connector lines between parent and child nodes. Description tooltips on hover (SVG `<title>`). Expand-all / Collapse-all controls. Distinct visual style for `$ref` nodes (dashed border).
-**Addresses:** Connector lines (table stakes), Description tooltip (differentiator), Expand all/collapse all (differentiator), Distinct $ref visual style (differentiator)
-**Avoids:** N/A — these are additive changes; no new pitfall categories introduced
-**Files changed:** `Render/Svg.elm` (connector SVG lines in viewProperties/viewItems, `<title>` for description, dashed border on Ref nodes, collapse indicator icon)
+**Addresses:** `$defs` support, combined type+combinator handling
 
-### Phase 5: Performance and Large Schema Handling
-**Rationale:** Performance tuning should come after correctness and interactivity are stable. `Svg.Lazy.lazy` is already imported in `Render/Svg.elm` but not used effectively. This phase addresses the performance cliff on schemas with 200+ nodes.
-**Delivers:** Responsive interactions on large real-world OpenAPI specs. `Svg.Lazy.lazy` applied at node boundaries. Scrollable SVG container via CSS overflow.
-**Addresses:** Large schema performance (deferred differentiator)
-**Avoids:** Pitfall 9 (Dict performance cliff), Pitfall 13 (Svg.Lazy reference equality semantics)
-**Files changed:** `Render/Svg.elm` (Svg.Lazy at Object/Array boundaries), `Main.elm` or CSS (scrollable wrapper div)
+**Avoids:** Pitfall 3 (decoder ordering regression), Pitfall 4 (`extractRefName` prefix bug)
+
+### Phase 2: Theme Extraction and Blueprint Foundation
+
+**Rationale:** `Render.Theme` extraction is prerequisite for every visual change — it centralizes 9+ hardcoded style constants so subsequent phases modify values in one place; blueprint background must come before color-dependent features because it sets contrast requirements; the Theme extraction step has zero behavior change risk (pixel-identical output until values change)
+
+**Delivers:** `Render.Theme` module, `RenderContext` grouping reducing `viewSchema` parameter count, blueprint dark background (`#1a2332`), type-based color coding (Okabe-Ito palette), type-colored connector lines, `FontWeight` union type replacing string `"700"`/`"400"`
+
+**Uses:** `avh4/elm-color` and `noahzgordon/elm-color-extra` for hex conversion and color derivation
+
+**Avoids:** Pitfall 6 (unmaintainable color system), Pitfall 15 (contrast audit gap), Pitfall 10 (string-based font weight)
+
+### Phase 3: NodeLayout Refactor and Information Density
+
+**Rationale:** NodeLayout refactor (extracting `NodeLayout`/`NodeMetrics` record, replacing all `y + 14` connector anchors with `anchorY`) must precede multi-line content because variable-height nodes break the coordinate contract; once layout is correct, description/constraint/format/enum features are additive and low-risk
+
+**Delivers:** `Render.Node` module with `measure`/`render` split, `anchorY`-based connector attachment, description text rendering, constraint display (`[min..max]` compact notation), format badges, enum values, required/optional asterisk badge, collapse indicator with child count
+
+**Implements:** `Render.Node` architecture component
+
+**Avoids:** Pitfall 1 (variable-height coordinate contract), Pitfall 7 (connector anchor misalignment), Pitfall 2 (text width per font size), Pitfall 5 (SVG text wrapping via tspan), Pitfall 9 (title field ignored), Pitfall 11 (Coordinates/Dimensions type alias confusion), Pitfall 13 (unbounded enum width), Pitfall 14 (SVG character escaping)
+
+### Phase 4: Schema Type Extension (Optional v1.1 stretch / v1.2)
+
+**Rationale:** Adding `ObjectWithCombinator` schema variant is medium risk (requires updating all exhaustive pattern matches in `viewSchema` and `getName`); defer until after visual polish is settled so testing scope is bounded; may slide to v1.2 if Phase 3 surfaces unexpected layout complexity
+
+**Delivers:** Correct rendering for OpenAPI-style schemas combining `type: "object"` with `oneOf`/`anyOf`/`allOf`
+
+**Avoids:** Pitfall 8 (Fallback wildcard hiding missing cases — temporarily remove Fallback to force exhaustive compile errors before adding variant)
 
 ### Phase Ordering Rationale
 
-- Phase 1 before everything: `Debug.log` and `Browser.sandbox` are hard blockers that corrupt subsequent work if left in place
-- Phase 2 before Phase 3: Expand/collapse on incorrectly-rendered nodes is harder to verify; fix correctness first so interactivity testing has a clean baseline
-- Phase 3 before Phase 4: Connector lines that appear/disappear on collapse must be tested against working collapse; connector lines added before collapse would need to be re-tested anyway
-- Phase 5 last: Performance optimization is only meaningful once the feature set is complete; premature optimization with `Svg.Lazy` before expand/collapse is stable wastes effort
+- Phase 1 before Phase 2: Decoder fixes have no dependencies and provide immediate testing value; real-world schemas (TypeBox, Zod) can be tested against visual changes in Phase 2
+- Phase 2 before Phase 3: `Render.Theme` is required input to `Render.Node` (measure needs font size and padding constants from Theme); color and spacing must be settled before multi-line layout math is locked in
+- Phase 3 deferred until Phase 2 complete: Every layout change in Phase 3 touches the coordinate-threading contract; doing this before spacing constants are settled means redoing layout math when values change
+- Phase 4 last: New Schema variant requires exhaustive pattern match updates; lower risk to do this after all other changes are committed and visually tested
 
 ### Research Flags
 
-Phases with standard patterns (skip `/gsd:research-phase`):
-- **Phase 1:** Browser.element migration and textarea input are well-documented Elm patterns with no ambiguity
-- **Phase 2:** Coordinate-threading and SVG rendering patterns are already in place; $ref guard is a standard tree-traversal pattern
-- **Phase 4:** SVG `<title>` and line drawing are standard SVG; connector math is straightforward given existing Dimensions return values
-- **Phase 5:** `Svg.Lazy` semantics are documented; the optimization approach is clear
+Phases likely needing deeper research during planning:
+- **Phase 3 (NodeLayout refactor):** The 9+ hardcoded `y + 14` and `y + 28` sites need a complete inventory before planning; use `grep -n "y + 14\|+ 28\|28 +" src/Render/Svg.elm` to enumerate all change sites
+- **Phase 3 (text width validation):** The `fontSize * 0.6` monospace ratio needs visual validation against actual font rendering before finalizing node width calculations; plan an explicit test render step in the phase plan
 
-Phases that may benefit from targeted research during planning:
-- **Phase 3:** The `NodePath` design (List String vs String key) has subtle tradeoffs for `Set` performance and `Svg.Lazy` compatibility; a quick design validation before writing code is worthwhile
+Phases with standard patterns (skip research-phase):
+- **Phase 1 (decoder fixes):** Both changes are straightforward; complete code snippets are in ARCHITECTURE.md and STACK.md, ready to implement directly
+- **Phase 2 (Theme extraction):** Mechanical Elm record-threading refactor; established pattern in the ecosystem; no research needed
 
 ## Confidence Assessment
 
 | Area | Confidence | Notes |
 |------|------------|-------|
-| Stack | HIGH | Elm 0.19.1 is frozen; all packages verified against elm.json; only one new package needed |
-| Features | MEDIUM | Reference tools (XMLSpy, Oxygen) are well-established; behavioral patterns are solid but not live-verified |
-| Architecture | HIGH | Based on direct codebase analysis; patterns are derived from existing code, not speculation |
-| Pitfalls | HIGH | All critical pitfalls derive from Elm language constraints and direct code analysis; not inferential |
+| Stack | HIGH | Verified via elm/svg source on GitHub; all referenced elements confirmed present in 1.0.1; package capabilities verified against Elm package registry |
+| Features | HIGH | Based on direct source code inspection of all decoded model fields; industry conventions from Redoc/Swagger/Stoplight well-documented; specific hex values MEDIUM pending visual testing |
+| Architecture | HIGH | Based on reading actual implementation (not prior proposals); all integration points derived from real codebase state; 9-site inventory of `pillHeight` usage is line-specific |
+| Pitfalls | HIGH | All critical pitfalls grounded in specific line-number references from source code reading; no speculative pitfalls included |
 
 **Overall confidence:** HIGH
 
 ### Gaps to Address
 
-- **`$ref` decoder behavior with root-level `$ref`**: The decoder may not handle a schema whose top-level construct is `{ "$ref": "..." }` (Pitfall 12). Test this edge case in Phase 2 before implementing inline expansion. If it decodes to `Fallback`, the render produces a silent empty diagram.
-
-- **Non-ASCII property name rendering**: `computeTextWidth` uses a fixed 7.2px-per-character approximation. For schemas with non-ASCII property names (common in international APIs), text will overflow pill containers. Acceptable for v1 but should be documented as a known limitation.
-
-- **`oneOf`/`anyOf`/`allOf` sub-schema icons**: Current intermediate nodes use text-only labels (`"|1|"`, `"|o|"`, `"(&)"`). These are acceptable but visually weak. No clear reference design exists — this is a design decision to make during Phase 4.
+- **Specific pixel values for spacing:** `childIndent` (recommended 20-24px), `siblingGap` (recommended 12-14px), `nodeHPadding` need visual iteration during Phase 2; plan an explicit tune-spacing step after blueprint background is applied
+- **Color contrast verification:** All 9 Okabe-Ito palette colors need WCAG AA contrast check against `#1a2332` during Phase 2; `#009E73` (String green) may need lightening to `#00C896`
+- **Phase 4 scope decision:** Whether `ObjectWithCombinator` is in v1.1 or v1.2 should be decided at Phase 3 completion based on actual complexity; the decoder portion (Phase 1) is always worth doing regardless
 
 ## Sources
 
 ### Primary (HIGH confidence)
-- Direct source analysis: `src/Render/Svg.elm`, `src/Json/Schema.elm`, `src/Json/Schema/Decode.elm`, `src/Main.elm`, `elm.json`
-- Elm 0.19.1 Browser module API: https://package.elm-lang.org/packages/elm/browser/latest/Browser
-- `elm/file` package: https://package.elm-lang.org/packages/elm/file/latest/
-- `elm/svg` Svg.Events module: https://package.elm-lang.org/packages/elm/svg/latest/Svg-Events
-- Elm Set (comparable keys including List String): https://package.elm-lang.org/packages/elm/core/latest/Set
+- `src/Render/Svg.elm` (lines 28-512) — direct source inspection for all coordinate-threading details and pitfall locations
+- `src/Json/Schema/Decode.elm` — direct source inspection for oneOf order and extractRefName hardcoding
+- `src/Json/Schema.elm` — direct source inspection for type aliases and Fallback variant
+- [elm/svg source](https://github.com/elm/svg/blob/master/src/Svg.elm) — full element list confirming all SVG 1.1 capabilities available
+- [JSON Schema 2020-12 spec](https://json-schema.org/draft/2020-12/json-schema-core#section-8.2.4) — $defs keyword definition
+- [Okabe-Ito palette](https://easystats.github.io/see/reference/scale_color_okabeito.html) — peer-reviewed colorblind-safe categorical palette hex values
+- [WCAG 2.1 contrast requirements](https://www.w3.org/TR/WCAG21/#contrast-minimum) — 4.5:1 for text, 3:1 for UI components
 
 ### Secondary (MEDIUM confidence)
-- Altova XMLSpy schema diagram view (XSD content model view) — behavioral patterns for node collapse, required/optional distinction, $ref inline display
-- Liquid XML Studio Schema Browser — color-coding and cardinality annotation conventions
-- Oxygen XML Editor JSON/XML schema diagram — combinator node visual treatment and pan/zoom patterns
+- [TypeBox output format](https://github.com/sinclairzx81/typebox) — produces 2020-12 schemas with $defs
+- [Redoc theme source](https://github.com/Redocly/redoc/blob/main/src/theme.ts) — schema rendering reference for constraint display patterns
+- [Swagger UI required field indicators](https://github.com/swagger-api/swagger-ui/issues/3255) — required field convention research
+- Specific hex values for Okabe-Ito palette — will need visual testing against dark background before finalizing
+
+### Tertiary (LOW confidence)
+- Node sizing pixel values (20-24px childIndent, 12-14px siblingGap) — derived from general spacing principles; require visual iteration during Phase 2
 
 ---
-*Research completed: 2026-04-03*
+*Research completed: 2026-04-09*
 *Ready for roadmap: yes*

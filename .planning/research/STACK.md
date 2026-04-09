@@ -1,279 +1,335 @@
 # Technology Stack
 
-**Project:** JSON Schema Viewer — Interactive SVG Diagram
-**Researched:** 2026-04-03
-**Confidence:** HIGH (Elm 0.19.1 ecosystem is stable and frozen since 2019; core packages do not change)
+**Project:** JSON Schema Viewer v1.1 — Professional Visuals
+**Researched:** 2026-04-09
 
----
-
-## Current Stack (Already in Place — Do Not Re-research)
+## Current Stack (v1.0 — unchanged for v1.1)
 
 | Technology | Version | Purpose |
 |------------|---------|---------|
-| elm/core | 1.0.4 | Core language |
-| elm/browser | 1.0.2 | Application entry point |
-| elm/html | 1.0.0 | HTML rendering |
+| Elm | 0.19.1 | Application framework |
 | elm/svg | 1.0.1 | SVG rendering |
+| elm/browser | 1.0.2 | Browser.element app |
 | elm/json | 1.1.2 | JSON decoding |
-| NoRedInk/elm-json-decode-pipeline | 1.0.0 | Decoder ergonomics |
-| avh4/elm-color | 1.0.0 | Color utilities |
-| noahzgordon/elm-color-extra | 1.0.2 | Color conversion (hex) |
+| NoRedInk/elm-json-decode-pipeline | 1.0.0 | Ergonomic decoder pipelines |
+| avh4/elm-color | 1.0.0 | Color type definitions |
+| noahzgordon/elm-color-extra | 1.0.2 | Color conversion (hex), manipulation |
 | elm-community/list-extra | 8.2.4 | List utilities |
+| elm/file | 1.0.5 | File upload handling |
 
----
+## Recommended Stack Changes for v1.1
 
-## Required Stack Additions
+**Zero new packages.** The existing stack is sufficient for every v1.1 goal. The rationale for each area follows.
 
-### 1. Browser Entry Point: Upgrade from `Browser.sandbox` to `Browser.element`
+## SVG Capabilities Already Available in elm/svg 1.0.1
 
-**What to change:** `Main.elm` currently uses `Browser.sandbox`. Replace with `Browser.element`.
+**Confidence: HIGH** (verified via elm/svg source on GitHub)
 
-**Why `Browser.element` and not `Browser.document`:**
-- `Browser.element` embeds the Elm app inside a specific DOM node — exactly what Create Elm App scaffolds (it mounts into `<div id="root">`). This is the right choice for the current setup.
-- `Browser.document` takes over the entire `<body>` and controls `<title>`. Unnecessary here — we have no need to manage the page title dynamically or restructure the HTML shell.
-- `Browser.sandbox` has no `Cmd`, no `Sub`, and no flags — it cannot receive user input events from outside Elm (file reads require `Task`/`Cmd`), cannot use `Html.Events.on` for file input change events that produce `Cmd`, and cannot manage the expand/collapse state update cycle that may eventually need subscriptions.
+`elm/svg` exposes the full SVG 1.1 spec as thin wrappers over `VirtualDom.node`. Every element needed for professional visuals is already present:
 
-**What `Browser.element` adds over `Browser.sandbox`:**
-- `init` receives `flags` from JavaScript (not needed now but available)
-- `update` returns `( Model, Cmd Msg )` — needed for `File.toString` task
-- `subscriptions` field — available for future keyboard shortcuts or window resize
-- No other structural changes to the architecture are needed
+### Gradients and Visual Depth
 
-**Migration cost:** LOW. Change `Browser.sandbox` to `Browser.element`, add `Cmd.none` to `update`, add empty `subscriptions`, change `init` signature. No new package required — `elm/browser` is already a dependency at 1.0.2.
+| Element | Function | Purpose for v1.1 |
+|---------|----------|-------------------|
+| `Svg.defs` | Container for reusable definitions | Define gradients, filters, markers once |
+| `Svg.linearGradient` | Linear gradient definition | Subtle node background gradients |
+| `Svg.stop` | Gradient color stops | Color transitions within gradients |
 
-**Confidence:** HIGH — `Browser` module is part of elm/browser 1.0.2, already in elm.json.
+### SVG Filters (Drop Shadows, Glow)
 
----
+| Element | Purpose for v1.1 |
+|---------|------------------|
+| `Svg.filter` | Define reusable filter effects |
+| `Svg.feGaussianBlur` | Blur primitive for soft shadows |
+| `Svg.feOffset` | Shadow displacement |
+| `Svg.feMerge` + `Svg.feMergeNode` | Combine shadow + original graphic |
 
-### 2. File Upload: `elm/file` Package
+Drop shadow pattern that works with elm/svg as-is:
 
-**Add:** `elm/file` at version `1.0.5`
-
-**Why:** File upload (reading a `.json` file the user selects) requires:
-- `File.Select.file` — opens the OS file picker, returns a `Cmd Msg` with a `File` value
-- `File.toString` — reads the file contents as a `String`, returns a `Task Never String`
-- `Task.perform` — converts the Task to a `Cmd Msg` so the result arrives as a `Msg`
-
-This is the idiomatic Elm approach. No JavaScript ports required.
-
-**Why not ports for file reading:** The constraint is "no JS interop for core features." `elm/file` is pure Elm API over the browser File API — no custom ports needed.
-
-**Installation:**
-```bash
-elm install elm/file
+```elm
+Svg.defs []
+    [ Svg.filter [ SvgA.id "dropShadow" ]
+        [ Svg.feGaussianBlur
+            [ SvgA.in_ "SourceAlpha", SvgA.stdDeviation "2" ] []
+        , Svg.feOffset
+            [ SvgA.dx "1", SvgA.dy "1", SvgA.result "offsetBlur" ] []
+        , Svg.feMerge []
+            [ Svg.feMergeNode [ SvgA.in_ "offsetBlur" ] []
+            , Svg.feMergeNode [ SvgA.in_ "SourceGraphic" ] []
+            ]
+        ]
+    ]
 ```
 
-This adds `elm/file` to `elm.json` direct dependencies. It transitively requires `elm/bytes` (already available as an indirect dep via the Elm package ecosystem).
+Note: `feDropShadow` (the CSS shorthand) is not in elm/svg, but the `feGaussianBlur + feOffset + feMerge` composition achieves identical results with more control.
 
-**Usage pattern:**
+### Additional SVG Elements for Polish
+
+| Element | Purpose for v1.1 |
+|---------|------------------|
+| `Svg.clipPath` | Clip overflow text within node bounds |
+| `Svg.marker` | Arrow/dot markers on connector endpoints |
+| `Svg.style` | Embed CSS in SVG (hover effects, transitions) |
+| `Svg.title` | Native browser tooltip on hover (no JS needed) |
+
+### SVG Attributes (Svg.Attributes)
+
+All presentation attributes are available as string-typed functions. Key ones for v1.1:
+
+- `filter` — Reference filter by ID: `SvgA.filter "url(#dropShadow)"`
+- `fill` — Accepts hex, rgb(), url(#gradientId)
+- `opacity`, `fillOpacity`, `strokeOpacity` — Layered depth
+- `strokeDasharray` — Already used for $ref dashed borders
+- `fontFamily`, `fontSize`, `fontWeight`, `fontStyle` — Typography control
+- `dominantBaseline`, `textAnchor` — Text alignment (already used)
+- `letterSpacing` — Typography fine-tuning
+
+## Why NOT to Add elm-tree-diagram
+
+**Confidence: HIGH**
+
+`brenden/elm-tree-diagram` (v3.0.0, Elm 0.19.1 compatible) provides a generic tree layout algorithm with `leftToRight`, `rightToLeft`, `topToBottom`, `bottomToTop` orientations and configurable `levelHeight`, `subtreeDistance`, `siblingDistance`.
+
+However:
+
+1. **Migration cost outweighs benefit.** The existing coordinate-threading pattern (`(Svg msg, Dimensions)` return pair) is working, tested, and understood. Rewriting ~500 lines of `Render.Svg` around elm-tree-diagram's layout model is high risk for no feature gain.
+2. **Schema-viewer layout is not a generic tree.** Connector lines must attach to specific Y anchors (vertical center of variable-height pills). elm-tree-diagram positions node centers and does not expose raw anchor coordinates in the way this project needs.
+3. **Variable-height nodes need custom measurement.** elm-tree-diagram assumes uniform node sizes or delegates size to callbacks. Multi-line nodes (description + constraints) require pre-measurement before layout — which the existing pattern already supports via the measure-then-render split.
+
+**Verdict:** Keep the hand-rolled coordinate-threading pattern.
+
+## Why NOT to Add typed-svg
+
+**Confidence: HIGH**
+
+`elm-community/typed-svg` (v7.0.0, Elm 0.19.1 compatible) provides type-safe SVG attributes (e.g., `Length` types instead of strings).
+
+1. **Migration cost with no capability gain.** ~80+ attribute usages change signature throughout `Render.Svg`.
+2. **Coordinate-threading already handles type safety.** Values are computed as `Float` and formatted via `String.fromFloat`. The weak-point (mixing up width/height) is not what typed-svg solves.
+3. **Dependency weight.** Large transitive surface for marginal benefit.
+
+**Verdict:** Stay with `elm/svg` string-attribute API.
+
+## Color Management — Already Installed
+
+The `avh4/elm-color` + `noahzgordon/elm-color-extra` pair provides everything needed for a blueprint theme:
+
+| Package | Key API | Use for v1.1 |
+|---------|---------|--------------|
+| `avh4/elm-color` | `Color.rgb255`, `Color.hsl`, `Color.toRgba` | Define palette base colors |
+| `noahzgordon/elm-color-extra` | `Color.Convert.colorToHex`, `Color.Manipulate.lighten/darken/fadeIn/fadeOut`, `Color.Interpolate.interpolate` | Derive color variants, convert to SVG hex strings |
+
+### Hand-Roll: Render.Theme Module
+
+Create `Render.Theme` to centralize all visual constants. A `Theme` record threads through render functions — one change site updates every node:
+
 ```elm
--- In your Msg type:
-type Msg
-    = SchemaTextChanged String
-    | FileRequested
-    | FileSelected File
-    | FileLoaded String
+module Render.Theme exposing (Theme, blueprint)
 
--- In update:
-FileRequested ->
-    ( model, File.Select.file [ "application/json", ".json" ] FileSelected )
+type alias Theme =
+    { background : String
+    , nodeFill : String       -- per-type variant from typeColor
+    , nodeStroke : String     -- per-type variant
+    , textPrimary : String    -- property name
+    , textSecondary : String  -- description
+    , textTertiary : String   -- constraints/format
+    , connectorStroke : String
+    , fontFamily : String
+    , fontSize : Float
+    , secondaryFontSize : Float
+    , tertiaryFontSize : Float
+    , lineHeight : Float
+    , nodeHPadding : Float
+    , nodeVPadding : Float
+    , childIndent : Float
+    , siblingGap : Float
+    , cornerRadius : Float
+    , refDashPattern : String
+    , connectorWidth : Float
+    }
+```
 
-FileSelected file ->
-    ( model, Task.perform FileLoaded (File.toString file) )
+Type-to-color mapping uses the Okabe-Ito palette (colorblind-safe) adapted for dark backgrounds:
 
-FileLoaded contents ->
-    ( { model | schemaInput = contents, parsedSchema = Json.Decode.decodeString decoder contents }
-    , Cmd.none
+| Type | Hex | Notes |
+|------|-----|-------|
+| Object | `#56B4E9` | Sky Blue — structural/container |
+| Array | `#CC79A7` | Reddish Purple — container, distinct from Object |
+| String | `#009E73` | Bluish Green — near-universal string convention |
+| Integer | `#E69F00` | Orange — numeric literal convention |
+| Number | `#D4A017` | Gold — distinguishes from integer |
+| Boolean | `#D55E00` | Vermilion — punchy, small binary type |
+| Null | `#7A8B99` | Gray — muted for absent value |
+| Ref | `#78D4F0` | Light sky blue + dashed border |
+| Combinator | `#F0E442` | Yellow — attention-drawing for composition |
+
+**Note:** `avh4/elm-color` Color values should be converted to hex strings AT the `Render.Theme` boundary. SVG attributes are strings; doing the conversion once in the theme module avoids repeated `colorToHex` calls in the hot render path.
+
+## Font Metrics — Pure Elm Approximation
+
+**Confidence: HIGH** (well-understood constraint)
+
+Elm cannot call `getBBox()` or `getComputedTextLength()` without ports. The existing `computeTextWidth` uses a 7.2px/character constant for 12px monospace. For v1.1 with multiple font sizes, generalize to a ratio:
+
+```elm
+charWidthForSize : Float -> Float
+charWidthForSize fontSize =
+    fontSize * 0.6  -- monospace advance width is ~60% of em size
+
+textWidth : Float -> String -> Float
+textWidth fontSize text =
+    toFloat (String.length text) * charWidthForSize fontSize
+```
+
+The 0.6 ratio is reliable for ASCII characters in monospace fonts across common screen sizes. JSON Schema property names are ASCII, so this holds. Unicode symbols in descriptions may be wider — truncate descriptions in Elm before rendering (max ~60 chars) rather than relying on exact width.
+
+**No Elm package provides font metrics without DOM access.** This is a known constraint across the entire Elm SVG ecosystem.
+
+## CSS-in-SVG Strategy
+
+Split styling concerns by context:
+
+| Concern | Location | Why |
+|---------|----------|-----|
+| App chrome (toolbar, panels) | `main.css` | CSS layout features, HTML hover states |
+| SVG node appearance | Inline `SvgA.*` attributes | Computed from data (type colors, dimensions) |
+| SVG hover effects + transitions | `Svg.style` element inside SVG | CSS `:hover` pseudo-class on SVG groups |
+
+Embed a `<style>` inside the SVG for hover/transition effects with no JS interop:
+
+```elm
+Svg.style []
+    [ Svg.text """
+        .node { transition: opacity 0.15s ease; cursor: pointer; }
+        .node:hover { opacity: 0.85; }
+        .connector { transition: stroke-opacity 0.2s ease; }
+    """ ]
+```
+
+**Do NOT use `rtfeldman/elm-css`.** It targets `Html.Styled`, not `Svg`. SVG styling is attribute-based in this project; elm-css adds significant complexity with zero benefit here.
+
+## Decoder Improvements — No New Packages
+
+### $defs Support (JSON Schema 2020-12)
+
+The fix is a decoder change only. `Json.Schema.Decode.definitionsDecoder` currently looks for `"definitions"` only:
+
+```elm
+definitionsDecoder : Decoder Schema.Definitions
+definitionsDecoder =
+    let
+        defsField key prefix =
+            field key
+                (keyValuePairs schemaDecoder
+                    |> map (List.map (Tuple.mapFirst ((++) prefix)) >> Dict.fromList)
+                )
+                |> maybe
+                |> map (Maybe.withDefault Dict.empty)
+    in
+    map2 Dict.union
+        (defsField "definitions" "#/definitions/")
+        (defsField "$defs" "#/$defs/")
+```
+
+Refs are stored with their full prefix (`#/definitions/Foo`, `#/$defs/Bar`). `Dict.get ref defs` in `Render.Svg` already matches on full ref strings, so no render changes needed. `extractRefName` must handle both prefixes:
+
+```elm
+extractRefName : String -> String
+extractRefName ref =
+    if String.startsWith "#/definitions/" ref then
+        String.dropLeft 14 ref
+    else if String.startsWith "#/$defs/" ref then
+        String.dropLeft 8 ref
+    else
+        ref
+```
+
+### Combined type + combinator Schemas
+
+Add a new Schema union variant for `{"type": "object", "properties": {...}, "oneOf": [...]}` — a common pattern in OpenAPI schemas:
+
+```elm
+type Schema
+    = ...existing...
+    | ObjectWithCombinator ObjectSchema CombinatorKind (List Schema)
+
+type CombinatorKind = OneOfKind | AnyOfKind | AllOfKind
+```
+
+Combined decoders must precede plain `objectDecoder` in the `oneOf` chain (more specific first):
+
+```elm
+schemaDecoder =
+    lazy (\_ ->
+        oneOf
+            [ objectWithOneOfDecoder   -- BEFORE plain object
+            , objectWithAnyOfDecoder
+            , objectWithAllOfDecoder
+            , objectDecoder
+            , arrayDecoder
+            , ...
+            , oneOfDecoder
+            , anyOfDecoder
+            , allOfDecoder
+            , map Schema.Fallback value
+            ]
     )
 ```
 
-**Confidence:** HIGH — `elm/file` is an official Elm package, stable since Elm 0.19.
+## New Modules to Create (No New Packages)
 
----
+| Module | Purpose | Status |
+|--------|---------|--------|
+| `Render.Theme` | Color palette, spacing constants, font sizes | New |
+| `Render.Node` | NodeContent, NodeMetrics, measure, render split | New |
 
-### 3. Text Area Input: No New Package Required
+Optionally:
+| `Render.Svg.Defs` | SVG `<defs>` block: gradients, filters, markers | New (or inline in `Render.Svg`) |
 
-**What to use:** `Html.textarea` from `elm/html` (already a dependency).
+## Summary: Build vs Install
 
-**Why no new package:** A `<textarea>` for pasting JSON Schema text is a standard HTML element fully covered by `elm/html`. The `Html.Events.onInput` event gives you `String -> msg` on every keystroke. No additional package needed.
+| Need | Solution | Install? |
+|------|----------|----------|
+| SVG gradients | `Svg.defs`, `Svg.linearGradient`, `Svg.stop` — already in elm/svg | No |
+| Drop shadows | `Svg.filter` + filter primitives — already in elm/svg | No |
+| Type-based color palette | Hand-rolled `Render.Theme` using avh4/elm-color (installed) | No |
+| Color variants | `Color.Manipulate.lighten/darken` from elm-color-extra (installed) | No |
+| Font metrics | Hand-rolled `fontSize * 0.6` ratio | No |
+| SVG hover effects | `Svg.style` embedded in SVG | No |
+| Multi-line nodes | Hand-rolled `Render.Node` with `measure`/`render` split | No |
+| `$defs` support | Modify `Json.Schema.Decode` only | No |
+| Combined object+combinator schemas | New `Schema` variant + decoder branches | No |
+| Blueprint visual style | Color constants in `Render.Theme` + SVG attributes | No |
 
-**Pattern:**
-```elm
-Html.textarea
-    [ Html.Attributes.value model.schemaInput
-    , Html.Events.onInput SchemaTextChanged
-    , Html.Attributes.placeholder "Paste JSON Schema here..."
-    , Html.Attributes.rows 20
-    , Html.Attributes.cols 80
-    ]
-    []
-```
+**Zero new dependencies for v1.1.**
 
-Parsing should be debounced or triggered on a "Parse" button click rather than on every keystroke — large schemas will cause lag if decoded on every character. Use a `ParseSchema` message triggered by a button.
+## Installation
 
-**Confidence:** HIGH — core elm/html, no new dependency.
-
----
-
-### 4. Interactive SVG (Expand/Collapse): No New Package Required
-
-**What to use:** `Svg.Events.onClick` from `elm/svg` (already a dependency at 1.0.1).
-
-**Why no new package:** SVG click events in Elm are handled via `Svg.Events`, which is part of `elm/svg`. The expand/collapse state lives in the `Model` as a `Set String` (collapsed node IDs) using `elm/core`'s `Set` module.
-
-**Pattern:**
-```elm
--- Track collapsed nodes by a stable path key
-type alias Model =
-    { ...
-    , collapsedNodes : Set String
-    }
-
--- Msg
-type Msg
-    = ToggleNode String  -- node path key
-
--- In update
-ToggleNode key ->
-    let
-        newCollapsed =
-            if Set.member key model.collapsedNodes then
-                Set.remove key model.collapsedNodes
-            else
-                Set.insert key model.collapsedNodes
-    in
-    ( { model | collapsedNodes = newCollapsed }, Cmd.none )
-
--- In Render.Svg, attach click handler to node group:
-Svg.g
-    [ Svg.Events.onClick (ToggleNode nodeKey) ]
-    [ ... ]
-```
-
-**Node key strategy:** Use a path string like `"root.properties.fruits"` or `"definitions.veggie"`. This is deterministic from the traversal and requires no extra ID tracking in the schema model.
-
-**Why `Set String` over `Dict String Bool`:** A `Set` of collapsed IDs is simpler — membership means collapsed, absence means expanded. The default state (everything expanded) requires no initialization beyond `Set.empty`.
-
-**Important:** `Svg.Events` is a sub-module of `elm/svg`. It is NOT separately installed — it comes with `elm/svg 1.0.1`. Just import it:
-```elm
-import Svg.Events
-```
-
-**Confidence:** HIGH — `Svg.Events.onClick` is part of the official `elm/svg` package.
-
----
-
-### 5. Layout Algorithm: No New Package — Pure Elm Implementation
-
-**What to use:** Extend the existing coordinate-threading pattern in `Render.Svg`.
-
-**Why no layout library:** There are no widely-adopted Elm layout graph libraries for SVG tree diagrams (the ecosystem is small). The existing coordinate-threading approach `(Svg msg, Dimensions)` is the correct foundation. It needs extensions, not replacement.
-
-**What needs to change in the layout:**
-- The current layout threads coordinates left-to-right, placing children to the right of parents. This works for shallow schemas.
-- For deep schemas (real-world OpenAPI component schemas with `$ref` chains), the SVG viewport needs to be dynamic — the `width` and `height` attributes on `<svg>` must be computed from the returned `Dimensions` rather than hardcoded at `"520"`.
-- The `viewBox` should be computed: `"0 0 {totalWidth} {totalHeight}"`.
-- Connector lines between parent nodes and children need to be drawn as `<line>` or `<path>` elements — currently missing.
-
-**Scrollable viewport:** Rather than making the SVG itself scroll, wrap it in a `<div>` with `overflow: auto` and let the SVG grow to its natural size. This is trivial in HTML/CSS and requires no Elm package.
-
-**Confidence:** HIGH — based on direct analysis of existing code and Elm SVG capabilities.
-
----
-
-### 6. `$ref` Resolution Rendering: No New Package — Model Change
-
-**Current state:** `Render.Svg` looks up `$ref` in `Definitions` but renders only a stub label (`roundRect ref (w + 10, y)`) rather than expanding the referenced schema inline.
-
-**Fix approach:** Pass the full `Definitions` dict (already threaded through as the `defs` argument) and render the referenced schema inline by recursing with `viewSchema`. Guard against circular `$ref` cycles using a `Set String` of currently-being-rendered refs:
-
-```elm
-viewSchema : Definitions -> Set String -> Coordinates -> Maybe Name -> Schema -> ( Svg msg, Dimensions )
-```
-
-The extra `Set String` argument is a visited-refs guard. If the ref key is already in the set, render a stub instead of recursing. This prevents infinite loops on circular schemas.
-
-**No new package needed** — `elm/core` `Set` is sufficient.
-
-**Confidence:** HIGH — this is a pure algorithmic change within existing code.
-
----
-
-## Packages to NOT Add
-
-| Package | Why Not |
-|---------|---------|
-| Any graph layout library (e.g., hypothetical `elm-dagre`) | None exists in Elm 0.19 ecosystem with sufficient maturity; the coordinate-threading pattern already in place is adequate for tree layouts |
-| `elm/http` | All processing is client-side; no server calls needed |
-| Any port-based JS interop for file handling | `elm/file` covers this natively |
-| `mdgriffith/elm-ui` | The app renders SVG, not HTML layout; elm-ui is for HTML-first UIs and adds significant learning overhead for no gain here |
-| `elm/animation` or any animation library | Not in scope for v1; expand/collapse is instant state toggle |
-| Any virtual DOM diffing optimizer | Elm's virtual DOM is sufficient; only optimize if profiling shows a problem |
-| `elm-explorations/browser` (test helper) | Not needed for production code |
-
----
-
-## Summary: What Actually Needs to Be Added
-
-Only **one new package** is required:
+No changes to `elm.json`.
 
 ```bash
-elm install elm/file
+# Verify install is clean
+elm make src/Main.elm --output=/dev/null
 ```
 
-Everything else — SVG click events, textarea input, expand/collapse state, layout — is achievable with packages already present in `elm.json`.
+## Alternatives Considered
 
-The architectural change is `Browser.sandbox` → `Browser.element` in `Main.elm`, which requires no new package.
-
----
-
-## Recommended Stack (Complete)
-
-### Core Application
-
-| Technology | Version | Purpose | Status |
-|------------|---------|---------|--------|
-| elm/core | 1.0.4 | Language core, Dict, Set, Task | Already present |
-| elm/browser | 1.0.2 | `Browser.element` entry point | Already present; upgrade sandbox → element |
-| elm/html | 1.0.0 | Textarea, buttons, layout wrapper | Already present |
-| elm/svg | 1.0.1 | SVG rendering + `Svg.Events.onClick` | Already present |
-| elm/json | 1.1.2 | JSON decoding of pasted schema | Already present |
-| elm/file | 1.0.5 | File picker + read file as string | **ADD THIS** |
-
-### Schema Modeling
-
-| Technology | Version | Purpose | Status |
-|------------|---------|---------|--------|
-| NoRedInk/elm-json-decode-pipeline | 1.0.0 | Decoder ergonomics | Already present |
-| elm-community/list-extra | 8.2.4 | List manipulation for properties | Already present |
-
-### Visual Utilities
-
-| Technology | Version | Purpose | Status |
-|------------|---------|---------|--------|
-| avh4/elm-color | 1.0.0 | Color values | Already present |
-| noahzgordon/elm-color-extra | 1.0.2 | Color-to-hex for SVG fill/stroke | Already present |
-
----
-
-## Pre-Production Cleanup Required
-
-Before any production build (`elm make --optimize`):
-
-- Remove all `Debug.log` calls in `Render/Svg.elm`:
-  - Line 37: `Debug.log "schema "` in `view`
-  - Line 668: `Debug.log "text color"` in `iconGeneric`
-  - Line 708: `Debug.log "red"` and `Debug.log "color"` in `color`
-
-`elm make --optimize` will refuse to compile with `Debug` calls present. This is a hard blocker for production builds, not a warning.
-
----
+| Category | Recommended | Alternative | Why Not |
+|----------|-------------|-------------|---------|
+| Tree layout | Hand-rolled coordinate-threading | `brenden/elm-tree-diagram` | Migration cost, variable-height node mismatch |
+| SVG attributes | `elm/svg` string API | `elm-community/typed-svg` | No capability gain, 80+ call sites change |
+| CSS styling | Inline SVG attributes + embedded `<style>` | `rtfeldman/elm-css` | Targets Html.Styled, not SVG |
+| Font metrics | `fontSize * 0.6` ratio | Ports + `getComputedTextLength()` | Adds JS interop, async complexity, out of scope |
 
 ## Sources
 
-- Elm 0.19.1 documentation is stable and frozen — changes to core packages do not occur after a major release
-- `elm/browser` Browser module API: https://package.elm-lang.org/packages/elm/browser/latest/Browser
-- `elm/file` package: https://package.elm-lang.org/packages/elm/file/latest/
-- `elm/svg` Svg.Events module: https://package.elm-lang.org/packages/elm/svg/latest/Svg-Events
-- Direct codebase analysis: `/home/eelco/Source/elm/jsonschema-viewer/elm.json`, `src/Main.elm`, `src/Render/Svg.elm`
-- Confidence: HIGH — Elm 0.19.1 package ecosystem is stable; core APIs have not changed since release
+- [elm/svg source — full element list](https://github.com/elm/svg/blob/master/src/Svg.elm) — HIGH confidence
+- [elm/svg package docs](https://package.elm-lang.org/packages/elm/svg/latest/Svg) — HIGH confidence
+- [brenden/elm-tree-diagram — package docs](https://package.elm-lang.org/packages/brenden/elm-tree-diagram/latest/TreeDiagram-Svg) — HIGH confidence (verified via Elm package registry)
+- [noahzgordon/elm-color-extra](https://package.elm-lang.org/packages/noahzgordon/elm-color-extra/latest/) — HIGH confidence
+- [avh4/elm-color](https://package.elm-lang.org/packages/avh4/elm-color/latest/) — HIGH confidence
+- [Okabe-Ito colorblind-safe palette](https://easystats.github.io/see/reference/scale_color_okabeito.html) — HIGH confidence (peer-reviewed color science)
+- [JSON Schema $defs vs definitions](https://github.com/orgs/json-schema-org/discussions/253) — HIGH confidence
+- [JSON Schema 2020-12 release notes](https://json-schema.org/draft/2020-12/release-notes) — HIGH confidence
+- [SVG drop shadow filter technique](https://www.w3.org/TR/filter-effects/) — HIGH confidence (W3C spec)
+- [Monospace font advance width ratio](https://en.wikipedia.org/wiki/Monospaced_font) — HIGH confidence

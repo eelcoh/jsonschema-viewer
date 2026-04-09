@@ -1,264 +1,363 @@
 # Domain Pitfalls
 
-**Domain:** Interactive SVG diagram viewer for JSON Schema in Elm 0.19.1
-**Researched:** 2026-04-03
-**Confidence:** HIGH (derived from direct codebase analysis + Elm 0.19.1 language constraints)
-
----
+**Domain:** Elm 0.19.1 SVG JSON Schema Viewer - v1.1 Visual Polish
+**Researched:** 2026-04-09 (updated from 2026-04-07)
 
 ## Critical Pitfalls
 
-Mistakes that cause rewrites or major architectural changes.
+Mistakes that cause rewrites or major issues.
+
+### Pitfall 1: Variable-Height Nodes Break the Coordinate-Threading Contract
+
+**What goes wrong:** The current renderer returns `(Svg msg, Dimensions)` where `Dimensions = (Float, Float)` represents the bottom-right corner of the rendered element (`(rightX, bottomY)`). Every parent uses this to position the next sibling. When nodes become variable-height (multi-line descriptions, constraints, enums), the `y + 28` assumption baked into every dimension calculation breaks silently — nodes overlap or leave gaps.
+
+**Why it happens:** The constant `pillHeight = 28` is not just used in `roundRect` and `iconRect` — it is implicitly threaded through `computeTextHeight` (hardcoded to 28), `computeVerticalText` (which adds 15 for centering in a 28px box), the `y + 14` connector anchor point calculations in `viewProperties` and `viewItems`, and the `+ 10` vertical spacing between siblings. Changing pill height in one place without updating all these dependent calculations creates misalignment.
+
+**Concrete locations in code:**
+- `roundRect`: `SvgA.height "28"` inline string, `( rectWidth + x, 28 + y )` dimension return
+- `iconRect`: `SvgA.height "28"` inline string, `( rectWidth + x, 28 + y )` dimension return
+- `computeTextHeight`: returns literal `28`, not referenced from `pillHeight`
+- `computeVerticalText`: returns `y + 15` (which assumes 28px height for centering)
+- `viewNameGraph`: `dims = ( x + fullWidth, y + 28 )` hardcodes 28
+- `separatorGraph`: `dims = ( x + strokeWidth, y + 28 )` hardcodes 28
+- `iconGeneric`: `dims = ( x + strWidth, y + strHeight )` where `strHeight = computeTextHeight = 28`
+- `viewProperties` inner loop: `connector` anchors at `y + 14` (half of 28)
+- `viewItems` inner loop: `connector` anchors at `y + 14` (half of 28)
+
+**Consequences:** Connector lines attach to wrong positions. Child nodes overlap parent nodes. Sibling nodes overlap each other. These bugs are visual-only (no runtime errors), making them hard to catch without visual regression testing.
+
+**Prevention:**
+1. Extract a `NodeLayout` record type that computes all derived values from a single height source:
+   ```elm
+   type alias NodeLayout =
+       { height : Float
+       , centerY : Float      -- height / 2, replaces hardcoded 14
+       , textBaselineY : Float -- replaces computeVerticalText's y + 15
+       , connectorY : Float   -- y + centerY, replaces y + 14
+       }
+   ```
+2. Make `iconRect` and `roundRect` accept or compute a `NodeLayout` and return it alongside dimensions.
+3. Replace all bare `y + 14`, `y + 15`, `y + 28` with layout-derived values in a single pass.
+4. Add test cases for `viewSchema` that verify returned dimensions for multi-line nodes.
+
+**Detection:** Visual inspection of schemas with descriptions (the Person example has descriptions on every field). If connector lines don't meet pill midpoints, the coordinate contract is broken.
+
+**Phase:** Must be addressed before any multi-line content work.
 
 ---
 
-### Pitfall 1: Debug.log Calls Block Production Builds
+### Pitfall 2: Text Width Approximation Catastrophically Wrong for Mixed Font Sizes
 
-**What goes wrong:** `elm make --optimize` (used by `elm-app build`) rejects any file containing `Debug.log` or `Debug.todo` calls with a hard compiler error. The current codebase has three `Debug.log` calls in `Render/Svg.elm` (`iconGeneric`, `color`, and `viewSchema`). Adding more during development makes production builds impossible until they are all removed.
+**What goes wrong:** The current `computeTextWidth` uses `String.length text * 7.2`, which assumes monospace 12px font. When v1.1 introduces typography hierarchy (different sizes for property names, types, descriptions, constraint values), this single multiplier produces wildly incorrect widths. Pill backgrounds will be too narrow (text overflows) or too wide (wasted space), and child positioning based on `rightX` will be wrong.
 
-**Why it happens:** Elm's `--optimize` flag enforces a clean separation between development helpers and production code. It is not a warning — it is a compiler error that halts the build entirely.
+**Why it happens:** SVG has no built-in text measurement from Elm. The browser's `getComputedTextLength()` API is available in JavaScript but requires ports in Elm 0.19, which adds async complexity (measure, then render). The 7.2 constant is only valid for one specific font-size/font-family combination.
 
-**Consequences:** CI builds fail. Production deployments are blocked. Finding all `Debug.log` calls under time pressure is error-prone.
+**Concrete location:** `computeTextWidth txt = String.length txt |> Basics.toFloat |> (*) 7.2` — used by `roundRect` (for full text), `iconGeneric` (for icon labels), and `viewNameGraph` (for property names). The `rectWidth = textWidth + 30` calculation in `roundRect` and the `fullWidth = computeTextWidth name` in `viewNameGraph` both cascade errors from this.
 
-**Prevention:** Establish a policy at the start of each phase: never commit `Debug.log` calls to `src/`. Use a pre-commit hook or CI step. Alternatively, centralize debug output in a dedicated `Debug.elm` module that is swapped out at build time. Address the three existing calls in Phase 1 before adding any interactivity.
+**Consequences:** Text overflows pill boundaries. Nodes positioned based on wrong parent width overlap or leave large gaps. The problem compounds: each node's error shifts all subsequent siblings.
 
-**Detection:** Run `elm make src/Main.elm --output=/dev/null --optimize` in CI. The compiler will name every offending file and line number.
+**Prevention:**
+1. Build a width lookup per font configuration rather than using a single constant:
+   ```elm
+   charWidthForSize : Float -> Float
+   charWidthForSize fontSize =
+       fontSize * 0.6  -- monospace ratio, adjust per font
+   
+   textWidth : Float -> String -> Float
+   textWidth fontSize text =
+       String.length text |> toFloat |> (*) (charWidthForSize fontSize)
+   ```
+2. Keep ALL text in monospace for v1.1 to avoid proportional font width uncertainty. Use font size and weight as the only typographic variables.
+3. If proportional fonts are needed later, use ports with `getComputedTextLength()` via a two-pass render: measure invisible text first, then render with known widths.
 
-**Affects phases:** Phase 1 (cleanup before adding interactivity), all subsequent phases.
+**Detection:** Load a schema with long property names (20+ characters) and short ones (1-3 characters) side by side. If pill widths don't match text content, the approximation is wrong.
 
----
-
-### Pitfall 2: Circular $ref Causes Infinite Recursion at Render Time
-
-**What goes wrong:** JSON Schema permits circular references — a schema can `$ref` a definition that eventually `$ref`s back to itself. The current `Render.Svg` code avoids this by rendering `$ref` nodes as stub labels instead of expanding them inline. When inline `$ref` expansion is implemented (required for a usable viewer), naively passing `defs` and calling `viewSchema` recursively on the resolved schema will loop until the browser stack overflows.
-
-**Why it happens:** The `Schema` type has a `Ref { ref : String }` variant. Resolving it via `Dict.get ref defs` returns a `Schema` which may itself contain a `Ref` pointing back to the original key. There is no cycle detection in the current render path. The commented-out code in `Render.Svg` (`-- |> Maybe.map (viewSchema defs ( w + 10, y ) Nothing)`) shows a prior attempt that was abandoned, likely for this reason.
-
-**Consequences:** Browser freeze or crash on any schema with self-referential definitions (common in real-world OpenAPI specs, e.g. a `Pet` that references `Category` which is referenced elsewhere).
-
-**Prevention:** Track a `Set String` of `$ref` keys currently in the render call stack. Pass it as a parameter alongside `defs`. When a `Ref` is encountered, check whether the key is already in the visited set before expanding. If visited, render a stub node. If not visited, add the key to the set and recurse.
-
-```elm
-viewSchema : Definitions -> Set String -> Coordinates -> Maybe Name -> Schema -> ( Svg msg, Dimensions )
-viewSchema defs visited coords name schema =
-    case schema of
-        Schema.Ref { ref } ->
-            if Set.member ref visited then
-                renderStub ref coords  -- break the cycle
-            else
-                case Dict.get ref defs of
-                    Nothing -> renderStub ref coords
-                    Just resolved ->
-                        viewSchema defs (Set.insert ref visited) coords name resolved
-        ...
-```
-
-**Detection:** Load the Petstore Swagger schema already present in `Main.elm`. The `Pet` -> `Category` -> `Tag` chain is acyclic but any schema where `A.$ref -> B` and `B.$ref -> A` will trigger infinite recursion immediately.
-
-**Affects phases:** Phase implementing $ref inline expansion.
+**Phase:** Address when introducing typographic hierarchy (description text, constraint text at smaller font sizes).
 
 ---
 
-### Pitfall 3: Node Identity for Expand/Collapse State Requires Stable Path Keys
+### Pitfall 3: Decoder oneOf Order Regression When Adding Combined Schemas
 
-**What goes wrong:** Expand/collapse state requires a `Dict` or `Set` keyed on some node identifier. The obvious choice — property name or schema title — is not unique. A schema can have `name` as a property on multiple nested objects. Using only the local name causes toggling one node to visually toggle all nodes with the same name.
+**What goes wrong:** The current decoder uses `oneOf` with Object first. When adding support for `type: "object"` + `oneOf` (a common JSON Schema pattern where an object has both properties AND a oneOf/anyOf combinator), the decoder must handle this combined case. If inserted at the wrong position in the `oneOf` chain, it either shadows existing decoders (eating all objects) or is never reached (shadowed by the plain Object decoder).
 
-**Why it happens:** JSON Schema properties are named locally within their parent object. The same name can appear at any depth. The `Schema` type stores property names as `String` in `ObjectProperty (Required String Schema | Optional String Schema)` — there is no globally unique ID on any node.
+**Why it happens:** Elm's `Json.Decode.oneOf` tries decoders sequentially and returns the first success. The current Object decoder succeeds for ANY JSON with `"type": "object"` — it does not check for absence of `oneOf`/`anyOf`/`allOf`. So a schema with `{"type": "object", "properties": {...}, "oneOf": [...]}` will decode as a plain Object, silently dropping the combinator.
 
-**Consequences:** Clicking to collapse `address.city` also collapses `billing.city` and `shipping.city`. The UI becomes unpredictable. This is difficult to fix retroactively if state management is already wired throughout the renderer.
+**Concrete location in code:** `schemaDecoder` uses `oneOf` starting with the Object decoder at line 37. The Object decoder's `withType "object"` guard succeeds whenever `"type": "object"` is present, regardless of other fields. The combinator decoders (OneOf, AnyOf, AllOf) come last and use `required "oneOf"` which would also match — but the Object decoder wins first.
 
-**Prevention:** Define a stable path-based node key before writing any expand/collapse logic. Represent node paths as `List String` (e.g. `["properties", "address", "properties", "city"]`) and derive a `String` key by joining with a separator unlikely to appear in property names (e.g. `"\u0000"`). Thread this path through every `viewSchema` / `viewProperty` call from the root.
+**Consequences:** Combined schemas lose their combinator branches. Users see an object node with properties but no oneOf/anyOf variants. This is a silent data loss bug — no decoder error, just missing information.
 
-**Detection:** Create a test schema with the same property name at two different depths. Clicking either node must not affect the other.
+**Prevention:**
+1. Add the combined object+combinator decoder BEFORE the plain Object decoder in the `oneOf` chain:
+   ```elm
+   oneOf
+       [ -- Combined schemas first (more specific)
+         objectWithOneOfDecoder
+       , objectWithAnyOfDecoder
+       , objectWithAllOfDecoder
+       -- Then plain schemas
+       , objectDecoder
+       , arrayDecoder
+       , ...
+       ]
+   ```
+2. Alternatively, restructure: decode Object, then check for combinator fields and attach them. This avoids `oneOf` ordering issues entirely.
+3. Add test cases for combined schemas: `{"type": "object", "properties": {"a": {"type": "string"}}, "oneOf": [{"required": ["a"]}, {"required": ["b"]}]}`.
 
-**Affects phases:** Phase adding expand/collapse state — must be designed in from the start of that phase, not retrofitted.
+**Detection:** Test with real-world schemas. OpenAPI schemas frequently use `type: "object"` with `allOf` or `oneOf`. If combinator branches disappear, the ordering is wrong.
 
----
-
-### Pitfall 4: The Coordinate-Threading Pattern Breaks When Layout Depends on Collapsed State
-
-**What goes wrong:** The current `Render.Svg` computes layout by threading `(x, y)` coordinates through recursive calls, with each node returning its bounding `Dimensions` so the next sibling can be placed below it. Collapsed nodes must contribute zero height for their children. If the collapsed check is added inconsistently — only in some branches, or only to the children but not to the returned dimensions — sibling nodes overlap or leave blank gaps.
-
-**Why it happens:** The pattern `( Svg msg, Dimensions )` returns actual rendered dimensions. A collapsed node renders nothing for its children but still returns the full expanded bounding box if the dimensions calculation is not also conditioned on collapse state. This is a two-part update (render path and dimension path) that must be synchronized.
-
-**Consequences:** Nodes overlap (collapsed node height was returned as full height) or there are blank regions in the SVG (expanded node height was returned as zero). The diagram looks broken.
-
-**Prevention:** When a node is collapsed, its `viewSchema`/`viewProperties` call must return `( emptyGroup, ( x, y + pillHeight ) )` — only the height of the header pill, not the children. Create a helper:
-
-```elm
-childrenOrCollapsed : Bool -> (() -> ( Svg msg, Dimensions )) -> Coordinates -> ( Svg msg, Dimensions )
-childrenOrCollapsed isExpanded renderChildren ( x, y ) =
-    if isExpanded then
-        renderChildren ()
-    else
-        ( Svg.g [] [], ( x, y + pillHeight ) )
-```
-
-Use this helper consistently in every branch that renders children (Object properties, Array items, OneOf/AnyOf/AllOf sub-schemas).
-
-**Detection:** Toggle a collapsed node and verify the next sibling's y-coordinate shifts up by exactly `pillHeight` (28px) from the collapsed node's origin.
-
-**Affects phases:** Phase adding expand/collapse — must be treated as a layout refactor, not just a state addition.
-
----
-
-### Pitfall 5: Browser.sandbox Cannot Receive User Input — Migration Must Be Done Correctly
-
-**What goes wrong:** `Browser.sandbox` has no `init` flags and no subscriptions. Adding a text area for schema paste requires `Browser.element` (flags or ports for file input) and a proper `Cmd`/`Sub` architecture. A common mistake is to incrementally add `Cmd.none` returns to `update` while still using `sandbox`, which the Elm compiler will reject with a type error pointing at `main`, not at the actual problem.
-
-**Why it happens:** `Browser.sandbox` has type `{ init : model, update : msg -> model -> model, view : model -> Html msg }`. `Browser.element` has type `{ init : flags -> ( model, Cmd msg ), update : msg -> model -> ( model, Cmd msg ), view : model -> Html msg, subscriptions : model -> Sub msg }`. Every `update` branch must return a tuple, and `init` must return a tuple. Forgetting one branch causes a type mismatch that can be confusing to locate.
-
-**Consequences:** Compiler errors cascade. If the migration is done in the middle of another feature, it becomes unclear which error is from the migration and which is from the new feature.
-
-**Prevention:** Do the `Browser.sandbox` to `Browser.element` migration as its own isolated commit before starting user-input features. Steps: (1) change `main` to use `Browser.element`, (2) update `init` to `flags -> ( Model, Cmd Msg )`, (3) update every `update` branch to return `( model, Cmd.none )`, (4) add `subscriptions = \_ -> Sub.none`, (5) compile and confirm green before touching anything else.
-
-**Detection:** The codebase currently has `main = Browser.sandbox { ... }` in `Main.elm`. The migration will cause type errors in `update` that must be resolved before proceeding.
-
-**Affects phases:** Phase 1 (must be done before user input can be added).
+**Phase:** Decoder improvement phase (independent of rendering).
 
 ---
 
 ## Moderate Pitfalls
 
+### Pitfall 4: $defs Support Creates Duplicate Key Conflicts
+
+**What goes wrong:** When supporting both `definitions` and `$defs`, the decoder must merge them into a single `Definitions` dict. If the same definition name exists in both (unlikely but possible), one silently overwrites the other. More critically, `$defs` uses `#/$defs/` as the ref prefix while `definitions` uses `#/definitions/` — but the current code hardcodes `#/definitions/` prefix in `definitionsDecoder` and `extractRefName` drops exactly 14 characters (`#/definitions/` length) with `String.dropLeft 14`.
+
+**Concrete location in code:**
+- `definitionsDecoder`: `field "definitions" (keyValuePairs schemaDecoder |> map (List.map (Tuple.mapFirst ((++) "#/definitions/")) >> Dict.fromList))`
+- `extractRefName`: `String.dropLeft 14 ref` — the literal 14 is the length of `"#/definitions/"`. A `$defs` ref like `"#/$defs/Foo"` would drop 14 characters producing `efs/Foo"` — wrong.
+- Tests for `extractRefName` only cover `"#/definitions/Address"`, not `"#/$defs/Foo"`.
+
+**Prevention:**
+1. Decode both fields, prefix keys appropriately (`#/definitions/` and `#/$defs/`).
+2. Update `extractRefName` to handle both prefixes:
+   ```elm
+   extractRefName ref =
+       if String.startsWith "#/definitions/" ref then
+           String.dropLeft 14 ref
+       else if String.startsWith "#/$defs/" ref then
+           String.dropLeft 8 ref
+       else
+           ref
+   ```
+3. Merge with `Dict.union` (left-biased), documenting which takes precedence.
+4. Add test cases with `$defs` schemas and `$ref: "#/$defs/Foo"` references.
+
+**Phase:** Decoder improvement phase. The existing test for `extractRefName` will need a companion test for the `$defs` prefix.
+
 ---
 
-### Pitfall 6: SVG Click Events Require stopPropagation or Children Capture Parent Clicks
+### Pitfall 5: Multi-Line SVG Text Requires Manual tspan Management
 
-**What goes wrong:** In SVG, `<g>` elements containing child `<rect>` and `<text>` elements pass click events upward through the DOM. If a parent `<g>` has an `onClick` handler and child elements also have `onClick` handlers, clicking a child fires both handlers. In the context of expand/collapse, clicking a property pill to expand it also fires the parent object's collapse handler.
+**What goes wrong:** SVG `<text>` elements do not wrap text. A long description or list of enum values renders as a single line that overflows the node boundary. There is no CSS `text-overflow: ellipsis` equivalent that works reliably in SVG 1.1.
 
-**Why it happens:** SVG event bubbling follows the same rules as HTML. Elm's `Svg.Events.onClick` maps to a standard DOM event listener. Without `stopPropagation`, events bubble up through the SVG element tree.
+**Concrete location in code:** The current `viewNameGraph` renders `Svg.text_` with a single `Svg.text` child. There is no wrapping or truncation. `roundRect` similarly uses `caption txt` as a single text node.
 
-**Consequences:** Clicking a nested node toggles both the node and its parent. Interaction feels broken and unpredictable.
+**Prevention:**
+1. Manually split text into lines and render each as a `<tspan>` with `dy` attribute for line spacing:
+   ```elm
+   multiLineText : Float -> Float -> Float -> List String -> List (Svg msg)
+   multiLineText x y lineHeight lines =
+       List.indexedMap (\i line ->
+           Svg.tspan
+               [ SvgA.x (String.fromFloat x)
+               , SvgA.dy (if i == 0 then "0" else String.fromFloat lineHeight)
+               ]
+               [ Svg.text line ]
+       ) lines
+   ```
+2. Truncate long descriptions to a max character count with ellipsis BEFORE rendering (not in SVG).
+3. For enum values, show first N values with "+M more" suffix.
+4. Set a `maxNodeHeight` to prevent pathologically long nodes from dominating the diagram.
 
-**Prevention:** Use `Svg.Events.stopPropagationOn "click"` from `elm/svg` (or `Html.Events.stopPropagationOn` which also works in SVG context) for any clickable SVG group that should not propagate. Apply this to every interactive node pill.
+**Phase:** Information density phase. Depends on Pitfall 1 (NodeLayout) being resolved first, since multi-line content increases node height.
 
+---
+
+### Pitfall 6: Color System Becomes Unmaintainable Without Central Theme
+
+**What goes wrong:** The current renderer has two colors: `darkClr` (blue fill) and `lightClr` (gray text/stroke). Adding type-based colors (different colors per schema type) by sprinkling color values throughout `viewSchema`, `iconRect`, `roundRect`, etc. creates a maintenance nightmare. Changing the palette later requires finding and updating dozens of call sites.
+
+**Concrete location in code:** `darkClr` and `lightClr` are module-level constants used by `roundRect`, `iconRect`, `viewNameGraph`, `separatorGraph`, `iconGeneric`, and `connectorPath`. They are referenced as `SvgA.fill`, `SvgA.stroke`. If you add per-type color by branching on `Icon` inside `iconRect`, you end up with color logic scattered across a single 500-line function.
+
+**Prevention:**
+1. Define a `Theme` record with all colors upfront:
+   ```elm
+   type alias Theme =
+       { background : String
+       , objectStroke : String
+       , arrayStroke : String
+       , stringStroke : String
+       , numberStroke : String
+       , booleanStroke : String
+       , refStroke : String
+       , textColor : String
+       , connectorColor : String
+       }
+   ```
+2. Thread the `Theme` through rendering functions (or define a module-level constant for now).
+3. Map `Schema` variant to color in ONE function: `strokeColorForSchema : Schema -> String`.
+4. Do NOT use the `avh4/elm-color` library for SVG attributes — SVG attributes are strings, so hex strings are simpler and avoid Color-to-string conversion overhead.
+
+**Phase:** Blueprint visual style phase. Establish the theme record before touching colors anywhere else.
+
+---
+
+### Pitfall 7: Connector Line Anchor Points Assume Fixed Node Height
+
+**What goes wrong:** Connector lines currently anchor at `y + 14` (vertical center of a 28px pill). With variable-height multi-line nodes, the anchor should be at the vertical center of the actual node, not at a hardcoded offset. Parent-to-child connectors will visually disconnect from pill centers.
+
+**Concrete location in code:**
+- `viewProperties` inner `viewProps`: `connectorPath ( parentRightX, parentY + 14 ) ( x, y + 14 )`
+- `viewItems` inner `viewItems_`: `connectorPath ( parentRightX, parentY + 14 ) ( x, y + 14 )`
+- `viewSchema` Array branch: `connectorPath ( w, y + 14 ) ( w + 10, y + 14 )`
+
+The `14` is `pillHeight / 2`. For variable-height nodes it must be `nodeHeight / 2`.
+
+**Prevention:**
+1. Have each node return its connector anchor point as part of its dimensions/layout result:
+   ```elm
+   type alias NodeResult =
+       { svg : Svg msg
+       , rightX : Float
+       , bottomY : Float
+       , anchorY : Float  -- vertical center for connector attachment
+       }
+   ```
+2. Update `viewProperties` and `viewItems` to use the returned `anchorY` instead of `y + 14`.
+3. This is tightly coupled with Pitfall 1 — solve them together.
+
+**Phase:** Must be addressed alongside Pitfall 1 (NodeLayout refactor). Cannot be left for later without causing connector line misalignment.
+
+---
+
+### Pitfall 8: Schema Type Union Extension Breaks Exhaustive Pattern Matches
+
+**What goes wrong:** If v1.1 adds a new `Schema` variant (e.g., `ObjectWithCombinator` for the combined type+combinator case, or if decoder changes produce a new structural representation), all pattern matches on `Schema` in `Render.Svg.viewSchema` and `Json.Schema.getName` must be updated. Elm's compiler will catch this — but only if the pattern match is truly exhaustive. If a `Fallback _ ->` or wildcard catch-all is present (and it is — `Schema.Fallback _` renders as empty `Svg.g`), a new variant will silently route to the fallback instead of erroring.
+
+**Concrete location in code:**
+- `viewSchema` has 12 cases ending with `Schema.Fallback _ -> ( Svg.g [] [], coords )`
+- `Json.Schema.getName` has 12 cases ending with `Fallback _ -> Nothing`
+- Adding any new Schema constructor without updating both functions will silently no-op in rendering
+
+**Prevention:**
+1. Before adding any new `Schema` variant, grep for every pattern match on `Schema` in the codebase.
+2. Prefer restructuring existing variants over adding new ones. For combined object+combinator, add fields to `ObjectSchema` rather than a new union variant.
+3. If a new variant is unavoidable, temporarily remove the `Fallback` wildcard to force compilation errors at every match site, add the new case, then restore `Fallback`.
+
+**Phase:** Decoder improvement phase, before any Schema type changes.
+
+---
+
+### Pitfall 9: viewSchema Drops the `title` Field for All Schema Types
+
+**What goes wrong:** The v1.1 goal includes showing node titles. The `Schema` type carries `title : Maybe String` on every variant (Object, Array, String, Integer, Number, Boolean, Null, Ref, combinators). The decoder decodes `title`. But `viewSchema` never reads it — it only passes the `name` argument (which comes from the property key, not the schema's own title). Rendering titles requires threading a new piece of information through every viewSchema call without breaking the existing name/weight contract.
+
+**Concrete location in code:**
+- `viewSchema` signature: `Maybe Name -> String -> Schema -> ...` where `Name = String`. The `name` argument is the property key passed from the parent, not the schema's title.
+- For schemas that appear as $ref expansions or combinator sub-schemas, `name` may be `Nothing`. The `title` from the schema itself is ignored in every branch.
+- `Schema.Object { title, properties }` — `title` is destructured but never used in the Object branch.
+- Same for Array, String, Integer, Number, Boolean, Null, Ref.
+
+**Prevention:**
+1. When displaying a node label, prefer: property key (from `name`) > schema title > type name (fallback).
+2. Implement as a helper: `nodeLabel : Maybe Name -> Schema -> String`.
+3. Do NOT add a separate `title` argument to `viewSchema` — read it from the `Schema` argument directly in the render function.
+
+**Phase:** Information density phase. This is a rendering addition, not a schema change.
+
+---
+
+### Pitfall 10: `iconRect` Passes Weight as String Through Multiple Layers
+
+**What goes wrong:** `iconRect` accepts `weight : String` ("700" or "400") and passes it to `viewNameGraph`. The `iconGraph` function ignores weight entirely — all icon labels render at "700" regardless. Adding new typographic states (light weight for descriptions, italic for optional annotations) via the same string threading pattern leads to typos and inconsistency.
+
+**Concrete location in code:**
+- `iconRect : Icon -> Maybe String -> String -> Coordinates -> ( Svg msg, Dimensions )` — third arg is weight
+- `iconGraph` internally calls `iconGeneric` and `viewNameGraph "700"` with hardcoded weight, ignoring the weight parameter for the icon portion
+- `separatorGraph` does not take a weight argument at all
+
+**Prevention:** Define a union type early:
 ```elm
-import Html.Events exposing (stopPropagationOn)
-import Json.Decode as Decode
-
-onClickStopPropagation : msg -> Svg.Attribute msg
-onClickStopPropagation msg =
-    stopPropagationOn "click" (Decode.succeed ( msg, True ))
+type FontWeight = Bold | Normal | Light | Italic
 ```
+Convert to SVG attributes at the render boundary only. This also makes the "required = bold, optional = normal" rule explicit and type-safe rather than string-based.
 
-**Detection:** Nest two expandable objects and click the inner one. If the outer one also toggles, propagation is not being stopped.
-
-**Affects phases:** Phase adding expand/collapse click handlers.
-
----
-
-### Pitfall 7: Fixed SVG viewBox Clips Large Schemas
-
-**What goes wrong:** The current SVG element has a hardcoded `viewBox "0 0 520 520"`. Real-world schemas (OpenAPI Petstore already in `Main.elm`) will produce diagrams far larger than 520x520. The SVG will silently clip content outside the viewBox.
-
-**Why it happens:** The renderer threads coordinates starting at `(0, 0)` and accumulates dimensions, but the outer `Svg.svg` element has no awareness of the final computed dimensions. There is no mechanism to feed the computed `Dimensions` back into the SVG container attributes.
-
-**Consequences:** Large schemas appear partially rendered with no error or indication that content is clipped.
-
-**Prevention:** One of two approaches: (a) compute total dimensions in a first pass before rendering, then set `viewBox` dynamically; or (b) use a fixed large viewBox with `overflow: auto` on the containing `<div>` and let the SVG scroll. Approach (b) is simpler and sufficient for v1. Set `viewBox "0 0 4000 4000"` initially and make the containing `<div>` scrollable via CSS. The dynamic approach requires running the layout algorithm twice (once to compute bounds, once to render), which can be unified by having the render pass also return overall bounds.
-
-**Detection:** Load the Petstore Swagger schema in `Main.elm` and verify all Pet/Category/Tag/Order definitions are visible, not clipped.
-
-**Affects phases:** Phase handling real-world schemas; should be addressed before or during Phase 1.
+**Phase:** Blueprint visual style phase. Change before adding new typographic variants.
 
 ---
 
-### Pitfall 8: Elm's Recursive Type Restriction Requires Wrapping for Mutual Recursion
+### Pitfall 11: `toSvgCoordsTuple` Returns Wrong Coordinate Type
 
-**What goes wrong:** Elm 0.19.1 does not allow directly recursive type aliases. `type alias Schema = { ... properties : List Schema }` will not compile. This is already handled in the codebase via a `type Schema = Object ObjectSchema | ...` union type. However, when adding new data structures for expand/collapse state trees (e.g. a tree mirroring the schema tree), the same restriction applies. A naive `type alias NodeState = { expanded : Bool, children : List NodeState }` is a recursive type alias and will fail to compile.
+**What goes wrong:** The helper `toSvgCoordsTuple : ( List (Svg msg), Coordinates ) -> ( Svg msg, Coordinates )` wraps a list in `Svg.g` and returns `Coordinates` (which is aliased to `(Float, Float)`, the same type as `Dimensions`). Both `Coordinates` and `Dimensions` are type aliases for `(Float, Float)`, so they are interchangeable — the compiler cannot distinguish them. A function that returns `Coordinates` when it should return `Dimensions` (or vice versa) will not produce a type error.
 
-**Why it happens:** Elm prohibits recursive type aliases (infinite expansion at compile time) but allows recursive `type` union types. The distinction is: type aliases must be structurally finite, while union types can be recursive via lazy evaluation.
-
-**Consequences:** Compiler error: "This type alias is recursive, causing an infinite type." The fix requires converting to a `type` union.
-
-**Prevention:** Any tree-shaped data structure for UI state must use `type` not `type alias`. The correct form:
-
+**Concrete location in code:**
 ```elm
-type NodeState
-    = NodeState { expanded : Bool, children : List NodeState }
+type alias Coordinates = ( Float, Float )
+type alias Dimensions = ( Float, Float )
 ```
+These two aliases are nominally different but structurally identical. `toSvgCoordsTuple` is called in `viewSchema` Object branch returning `Coordinates` where the caller expects `Dimensions`. Currently they happen to hold the same values, but this is fragile.
 
-Use this pattern from the start for any expand/collapse tree.
+**Prevention:** If adding a `NodeResult` record (see Pitfall 7), the distinction dissolves — both become fields of the record with clear names. If keeping the tuple approach, add a comment convention distinguishing "Coordinates = input position" from "Dimensions = output extent."
 
-**Detection:** Attempt to compile after adding a recursive type alias. The error message is clear and points to the offending type.
-
-**Affects phases:** Phase designing expand/collapse state tree.
-
----
-
-### Pitfall 9: `Dict String expandState` with Path Keys Has Performance Cliff on Large Schemas
-
-**What goes wrong:** Storing expand/collapse state as `Dict String Bool` keyed by path string is simple and correct for small schemas. For large OpenAPI specs with hundreds of definitions, each user interaction requires traversing the full model and re-rendering the full SVG tree. Elm's virtual DOM diffing helps for HTML but SVG re-rendering of hundreds of nodes is noticeably slow.
-
-**Why it happens:** Elm re-runs the entire `view` function on every model change. The SVG renderer walks the full schema tree recursively. With 200+ nodes, each render takes longer. Elm's `Svg.Lazy.lazy` (already imported in `Render.Svg`) can short-circuit subtrees that have not changed, but only if the arguments to `lazy` are reference-equal (not structurally equal).
-
-**Consequences:** Noticeable lag (>100ms) on click for large schemas. Feels unresponsive.
-
-**Prevention:** Use `Svg.Lazy.lazy` (already imported) at object and array node boundaries, passing the expand state for that subtree as an argument. Only the path to the toggled node needs to re-render. Ensure the expand state passed to each `lazy`-wrapped subtree is the minimal slice relevant to that subtree, not the entire `Dict`. The `Dict String Bool` keyed by full path naturally enables this: pass `Dict.filter (\k _ -> String.startsWith path k) expandState` to each node's `lazy` call.
-
-**Detection:** Load a schema with 50+ properties across multiple levels. Measure frame time on click using browser DevTools Performance panel. Greater than 16ms per frame is the threshold.
-
-**Affects phases:** Phase handling large schemas (likely later phase); flag for performance testing.
+**Phase:** NodeLayout refactor phase.
 
 ---
 
-### Pitfall 10: File Input for Schema Upload Requires a Port or Flags (Cannot Be Done in Pure Elm)
+### Pitfall 12: Lazy Rendering Interacts With Collapse State
 
-**What goes wrong:** `Browser.element` supports `flags` for initial data, but reading a file selected by `<input type="file">` requires a `FileReader` API call. In Elm 0.19.1, this can be accomplished via the `elm/file` package (`File.toBytes`, `File.toString`) without ports — but this is often missed, and developers either try to use ports (adding JS complexity) or give up on file upload entirely.
+**What goes wrong:** The codebase imports `Svg.Lazy` (`import Svg.Lazy exposing (lazy)`) but does not currently use it. If `Svg.Lazy.lazy` is added for performance on large schemas, it caches SVG based on argument equality. The `collapsedNodes : Set String` argument must be passed to every lazily-evaluated render function — otherwise a node will render its cached (pre-collapse) state even after the user toggles it.
 
-**Why it happens:** The `elm/file` package was added in 0.19.1 and is not widely known. `Browser.sandbox` cannot use `Cmd`, so file reading is impossible in sandbox mode. The feature is only available after migrating to `Browser.element`.
+**Concrete location in code:** The `lazy` import exists in `Render.Svg` but is unused. `view` passes `collapsedNodes` down through `viewSchema` → `viewProperties` / `viewItems` chain. Any `lazy` wrapping must include `collapsedNodes` as an argument, not just the schema and coordinates.
 
-**Consequences:** Over-engineering with ports where `elm/file` would suffice, or under-delivering (paste-only, no file upload).
+**Prevention:** If using `Svg.Lazy.lazy`, the function must take `collapsedNodes` as its first argument so Elm's structural equality check detects changes. Never lazy-wrap a function that closes over `collapsedNodes` via a closure — changes to the set will be invisible to the cache check.
 
-**Prevention:** Use `elm/file` for file upload after migrating to `Browser.element`. The pattern is: `Html.Events.on "change" (Decode.map GotFile File.decoder)` on the file input element, then `Task.perform GotFileContent (File.toString file)` in update. No ports required.
-
-**Detection:** Check whether `elm/file` is in `elm.json` dependencies. It is not currently listed, so it needs to be added (`elm install elm/file`).
-
-**Affects phases:** Phase adding user input (paste/upload).
+**Phase:** Performance optimization phase (not v1.1 scope, but flag it if `lazy` is introduced during visual changes as an optimization).
 
 ---
 
 ## Minor Pitfalls
 
----
+### Pitfall 13: Enum Value Rendering Creates Unbounded Node Width
 
-### Pitfall 11: computeTextWidth Uses a Fixed Character Width That Breaks for Non-ASCII
+**What goes wrong:** Enum values like `["very_long_option_name_1", "very_long_option_name_2", ...]` rendered inline make nodes extremely wide, breaking the horizontal layout.
 
-**What goes wrong:** `computeTextWidth` in `Render/Svg.elm` multiplies character count by `7.2`. This is an approximation for ASCII monospace. Unicode characters (property names in non-English schemas), emoji in descriptions, or variable-width glyphs will cause text to overflow or under-fill its pill container.
+**Prevention:** Render enum values vertically (one per line) within the node, with truncation after N items. Use `computeTextWidth` on the longest value to determine node width.
 
-**Prevention:** Accept the approximation for v1 but add a minimum padding constant. For v2, consider using SVG `getComputedTextLength()` via a port if precision is required. For now, document the limitation.
-
-**Affects phases:** Phase rendering real-world schemas; low priority for v1.
+**Phase:** Information density phase.
 
 ---
 
-### Pitfall 12: Decoder Does Not Handle `$ref` as the Sole Schema (Non-Object Context)
+### Pitfall 14: Description Text May Contain Characters That Break SVG
 
-**What goes wrong:** JSON Schema allows `$ref` to appear as the top-level schema (not wrapped in an object). The current decoder likely handles `$ref` only as a property value. A schema file that starts with `{ "$ref": "#/definitions/Foo" }` at the root may decode as `Fallback` rather than `Ref`.
+**What goes wrong:** JSON Schema descriptions can contain `<`, `>`, `&` characters. While Elm's `Svg.text` function handles escaping, if descriptions are used in SVG attributes (like title/tooltip), they need manual escaping.
 
-**Prevention:** Test the decoder with a root-level `$ref` schema before implementing inline `$ref` expansion. If it decodes to `Fallback`, the render pipeline silently produces an empty diagram with no error visible to the user.
+**Prevention:** Always use `Svg.text` for text content (which auto-escapes). Never interpolate user text into attribute strings. If adding `<title>` elements for tooltips, use `Svg.title [] [ Svg.text description ]`.
 
-**Affects phases:** Phase implementing $ref resolution.
-
----
-
-### Pitfall 13: `Svg.Lazy.lazy` Arguments Must Be Reference-Equal, Not Structurally Equal
-
-**What goes wrong:** `Svg.Lazy.lazy f arg` skips re-rendering only if `arg` is reference-equal (same pointer) to the previous call's arg, not structurally equal. Creating a new `Dict` or `List` from scratch on each `view` call means `lazy` never skips anything, providing no benefit.
-
-**Prevention:** Ensure that unchanged subtrees receive the exact same data structure reference. For `Dict` values passed to `lazy`, use `Dict.get` to pass a `Maybe Bool` (which is a scalar) rather than a sub-dict constructed on each render.
-
-**Affects phases:** Performance optimization phase; low priority initially.
+**Phase:** Information density phase.
 
 ---
 
-### Pitfall 14: oneOf/anyOf/allOf Sub-Schemas Have No Stable Identity
+### Pitfall 15: Blueprint Dark Background Requires Contrast Audit of All Existing Colors
 
-**What goes wrong:** `BaseCombinatorSchema` stores `subSchemas : List Schema`. List elements have positional identity only. If a sub-schema is itself a `Ref`, its position in the list could change if the decoder's ordering changes. Expand/collapse state keyed by list index is fragile.
+**What goes wrong:** The current colors (`darkClr = color 57 114 206` = `#3972CE` fill, `lightClr = "#e6e6e6"` text/stroke) were designed for a light/white page background. Moving to a dark navy blueprint background (`#1a2332` range) requires re-evaluating all colors. The `#3972CE` blue node fill will look different (likely higher contrast, which is fine). The `#8baed6` connector line color may need adjustment. The `#e6e6e6` text on dark-fill nodes will still work, but text on the page background (labels, etc.) may need to be lighter.
 
-**Prevention:** Key combinator sub-schemas by their index within the parent combinator node's path: `["oneOf", "0"]`, `["oneOf", "1"]`, etc. This is stable as long as the decoder output order is stable (which it is, since it follows the JSON array order).
+**Prevention:** When switching to dark background, audit every color in the renderer: `darkClr`, `lightClr`, the `#8baed6` connector, and the `#e6e6e6` text. Verify WCAG AA contrast (4.5:1 for text, 3:1 for UI components) against the new background.
 
-**Affects phases:** Phase implementing expand/collapse for combinator schemas.
+**Phase:** Blueprint visual style phase, first step before any other visual changes.
+
+---
+
+### Pitfall 16: Existing Tests Only Cover Helpers, Not Layout
+
+**What goes wrong:** The test suite covers `connectorPathD`, `extractRefName`, and `fontWeightForRequired` — all pure helper functions. No tests verify that `viewSchema` returns correct dimensions for any schema. Layout regressions from v1.1 changes will be undetected.
+
+**Prevention:** Add dimension-verification tests before making changes:
+```elm
+test "object with two properties returns expected dimensions" <|
+    \_ ->
+        let
+            (_, (w, h)) = viewSchema ... simpleObjectSchema
+        in
+        Expect.all
+            [ \(w_, _) -> Expect.greaterThan 0 w_
+            , \(_, h_) -> Expect.greaterThan 56 h_  -- at least 2 * pillHeight
+            ] (w, h)
+```
+
+**Phase:** Before any layout changes. Add layout dimension tests as the first task in the NodeLayout refactor phase.
 
 ---
 
@@ -266,26 +365,46 @@ Use this pattern from the start for any expand/collapse tree.
 
 | Phase Topic | Likely Pitfall | Mitigation |
 |-------------|---------------|------------|
-| Cleanup / Production Build | Debug.log calls block `--optimize` builds | Remove all three existing `Debug.log` calls before any other work |
-| Browser.sandbox migration | Type errors cascade if done mid-feature | Migrate as isolated commit, compile-check before proceeding |
-| User input (paste/upload) | File reading needs `elm/file`, not ports | Add `elm/file` dependency; use `File.toString` task |
-| SVG click handlers | Event bubbling triggers parent and child handlers | Use `stopPropagationOn "click"` on every interactive node |
-| Expand/collapse state design | Non-unique property names cause wrong node toggled | Design path-based keys `List String` before wiring any state |
-| Expand/collapse layout | Collapsed nodes return wrong dimensions, causing overlap | Update both render path and dimension return simultaneously |
-| Recursive UI state tree | Recursive type alias won't compile | Use `type NodeState = NodeState { ... }` not `type alias` |
-| $ref inline expansion | Circular references cause infinite recursion | Thread `Set String` of visited refs through render calls |
-| Real-world schemas | Fixed 520x520 viewBox clips content | Use large viewBox + CSS overflow scroll on container |
-| Large schema performance | Full re-render on every click | Use `Svg.Lazy.lazy` at node boundaries; pass minimal state slices |
+| Blueprint visual style (dark background) | Existing light-background colors (#3972CE, #e6e6e6, #8baed6) need contrast audit | Audit all colors first; define Theme record before touching any color value |
+| Blueprint visual style (outlined nodes) | Changing from filled to stroked rects: white text on transparent background is invisible | Define stroke+fill pairs per type, ensure text remains readable against page background |
+| Multi-line nodes | Height calculation cascade: every function that adds `pillHeight` or `28` must change | Extract NodeLayout record FIRST, then change rendering |
+| Typography hierarchy | Text width approximation breaks for different font sizes | Build per-size width function, keep monospace |
+| Layout improvements | Spacing changes interact with connector anchor points | Change spacing constants AFTER NodeLayout refactor |
+| Adding Schema type variants | Fallback wildcard hides missing pattern match cases | Temporarily remove Fallback to force exhaustive compile errors |
+| Decoder: $defs support | `extractRefName` hardcodes prefix length 14 with `String.dropLeft 14` | Handle both prefixes, add tests with $defs schemas |
+| Decoder: combined object+oneOf | oneOf order determines which decoder wins; Object decoder matches before combinators | More specific decoders must come first in chain |
+| Long descriptions/enums | SVG text has no wrapping; unbounded content breaks layout | Truncate in Elm before rendering, use tspan for multi-line |
+| Title field rendering | `viewSchema` destructs `title` from every variant but never renders it | Implement `nodeLabel` helper that prefers property key > title > type name |
+| Font weight extension | Weight passed as String "700"/"400" through multiple layers | Replace with FontWeight union type before adding new typographic variants |
+
+---
+
+## Recommended Change Order
+
+Based on pitfall dependencies, the safest implementation order is:
+
+1. **Layout dimension tests** (Pitfall 16) — Establish regression baseline before any changes
+2. **Decoder changes** (Pitfalls 3, 4) — Independent of rendering, testable in isolation
+3. **NodeLayout refactor** (Pitfalls 1, 7, 11) — Extract the coordinate contract before changing it; includes adding `anchorY` to avoid connector disconnection
+4. **Theme/color system** (Pitfalls 6, 15) — Visual-only, but must precede any color additions; dark background contrast audit first
+5. **Blueprint style** (Pitfall 10) — Font weight union type, stroke/fill per type
+6. **Text width per font-size** (Pitfall 2) — Needed before typography changes
+7. **Multi-line text rendering** (Pitfall 5) — Depends on NodeLayout and text width
+8. **Information density** (Pitfalls 9, 13, 14) — Title field, description, constraints, enums; after layout stabilizes
+9. **Schema type changes** (Pitfall 8) — Only if needed; prefer field additions over new union variants
 
 ---
 
 ## Sources
 
-- Direct analysis of `/home/eelco/Source/elm/jsonschema-viewer/src/Render/Svg.elm` — HIGH confidence
-- Direct analysis of `/home/eelco/Source/elm/jsonschema-viewer/src/Json/Schema.elm` — HIGH confidence
-- Direct analysis of `/home/eelco/Source/elm/jsonschema-viewer/src/Main.elm` — HIGH confidence
-- Elm 0.19.1 language specification (recursive type aliases, `--optimize` flag behavior) — HIGH confidence
-- Elm `Browser.sandbox` vs `Browser.element` API contracts — HIGH confidence
-- Elm `Svg.Lazy` reference equality semantics — HIGH confidence
-- JSON Schema draft-07 circular reference specification — HIGH confidence
-- SVG DOM event bubbling specification (W3C) — HIGH confidence
+- Source code reading: `/home/eelco/Source/elm/jsonschema-viewer/src/Render/Svg.elm` (all coordinate-threading details are direct observations from lines 28-512)
+- Source code reading: `/home/eelco/Source/elm/jsonschema-viewer/src/Json/Schema/Decode.elm` (oneOf order, extractRefName hardcoding)
+- Source code reading: `/home/eelco/Source/elm/jsonschema-viewer/src/Json/Schema.elm` (type aliases, Fallback variant)
+- [SVG text-overflow - MDN](https://developer.mozilla.org/en-US/docs/Web/SVG/Reference/Attribute/text-overflow) - SVG text truncation limitations
+- [Multiline SVG Text via tspan - O'Reilly](https://www.oreilly.com/library/view/svg-text-layout/9781491933817/ch04.html) - tspan-based multi-line approaches
+- [JSON Schema $defs vs definitions discussion](https://github.com/orgs/json-schema-org/discussions/253) - $defs compatibility across drafts
+- [JSON Schema combining keywords](https://json-schema.org/understanding-json-schema/reference/combining) - oneOf/anyOf/allOf semantics
+- [SVGTextContentElement.getComputedTextLength() - MDN](https://developer.mozilla.org/en-US/docs/Web/API/SVGTextContentElement/getComputedTextLength) - browser text measurement API
+- [Elm JSON Decode oneOf source](https://github.com/elm/json/blob/master/src/Json/Decode.elm) - sequential decoder behavior
+- [JSON Schema 2020-12 Release Notes](https://json-schema.org/draft/2020-12/release-notes) - $defs migration details
+- [WCAG 2.1 contrast requirements](https://www.w3.org/TR/WCAG21/#contrast-minimum) - 4.5:1 for text, 3:1 for UI components
