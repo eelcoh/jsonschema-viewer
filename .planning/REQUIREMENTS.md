@@ -1,87 +1,73 @@
 # Requirements: JSON Schema Viewer
 
-**Defined:** 2026-04-03
+**Defined:** 2026-04-09
 **Core Value:** Users can visually navigate and understand the structure of any JSON Schema document through an interactive SVG diagram with expandable/collapsible nodes.
 
-## v1.0 Requirements
+## v1.1 Requirements
 
-Requirements for initial release. Each maps to roadmap phases.
+Requirements for milestone v1.1 Professional Visuals. Each maps to roadmap phases.
 
-### Foundation
+### Decoder Fixes
 
-- [x] **FOUND-01**: `Debug.log` calls removed from `Render.Svg` so production builds work with `--optimize`
-- [x] **FOUND-02**: App upgraded from `Browser.sandbox` to `Browser.element` to support user input and interactivity
+- [ ] **DEC-01**: User can load JSON Schema 2020-12 documents using `$defs` and see definitions resolved correctly
+- [ ] **DEC-02**: User can load schemas with combined type + combinator (e.g., `type: "object"` with `oneOf`) and see both the object properties and combinator variants rendered
 
-### Input
+### Visual Style
 
-- [x] **INPUT-01**: User can paste a JSON Schema document into a textarea and see it rendered as a diagram
-- [x] **INPUT-02**: User can upload a JSON Schema file from their filesystem and see it rendered as a diagram
+- [ ] **VIS-01**: User sees the diagram rendered on a dark navy blueprint-style background with appropriate contrast for all text and nodes
 
-### Rendering
+### Node Design
 
-- [x] **REND-01**: `$ref` nodes display the referenced definition name with a distinct icon; inline expansion with circular reference guard deferred to Phase 3
-- [x] **REND-02**: SVG viewport dynamically scales to fit the rendered schema diagram
-- [x] **REND-03**: Required properties are visually distinct from optional properties
+- [ ] **NODE-01**: User can distinguish required properties from optional ones via a clear visual marker (asterisk or badge), not just font weight
+- [ ] **NODE-02**: User can see string format annotations (email, date-time, uri, etc.) displayed as a badge on string nodes
 
-### Interactivity
+### Information Density
 
-- [x] **INTR-01**: User can click a node to expand or collapse its children (objects show/hide properties, arrays show/hide items)
+- [ ] **INFO-01**: User can see schema descriptions displayed as secondary text on nodes that have a `description` field
+- [ ] **INFO-02**: User can see constraints (min/max length, min/max value, pattern) displayed as compact notation on nodes
+- [ ] **INFO-03**: User can see enum values displayed on nodes that define allowed values
 
-### Visual
+## Future Requirements
 
-- [x] **VIS-01**: Connector lines link parent nodes to their child properties
-- [x] **VIS-02**: `$ref` nodes have a distinct visual style (e.g., dashed border or link icon) distinguishing them from inline schemas
+### Visual Enhancement
 
-## v2 Requirements
+- Type-based color coding (per-type Okabe-Ito colorblind-safe palette)
+- Type-colored connector lines (inherit parent node color)
+- Collapse indicator with child count badge (e.g., "User {5}")
 
-Deferred to future release. Tracked but not in current roadmap.
+### Advanced Layout
 
-### Interactivity
-
-- **INTR-02**: User can expand-all or collapse-all nodes with a single action
-- **INTR-03**: User can hover over a node to see its description in a tooltip
-
-### Rendering
-
-- **REND-04**: String format annotations (email, date-time, uri) displayed on nodes
-
-### Performance
-
-- **PERF-01**: Large schemas (OpenAPI specs with 100+ definitions) render without noticeable lag
+- Expanded multi-line node cards with progressive disclosure
 
 ## Out of Scope
 
 | Feature | Reason |
 |---------|--------|
-| Pan and zoom | Requires JS interop or complex SVG transforms, disproportionate risk for v1 |
-| Schema editing/authoring | This is a viewer, not an editor |
-| Schema validation | Display structure, don't validate data against it |
-| Multi-file schema resolution | Single document input for v1 |
-| Server-side processing | Client-only Elm app, no backend |
-| Mobile-optimized layout | Desktop-first for diagram viewing |
+| Expanded node cards | High complexity — requires NodeLayout refactor across 9+ locations; defer to v1.2 |
+| Dark mode toggle | Commit to blueprint aesthetic as the single theme |
+| Animated transitions | High complexity via SVG animation in Elm; low value for technical tool |
+| Drag-to-rearrange nodes | Requires physics engine; out of scope for read-only viewer |
+| Multi-schema cross-referencing | Out of scope for single-document viewer |
+| Tooltip/hover popups | SVG tooltips are janky; show info inline instead |
 
 ## Traceability
 
-Which phases cover which requirements. Updated during roadmap creation.
-
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| FOUND-01 | Phase 1 | Complete |
-| FOUND-02 | Phase 1 | Complete |
-| INPUT-01 | Phase 1 | Complete |
-| INPUT-02 | Phase 1 | Complete |
-| REND-01 | Phase 2 | Complete |
-| REND-02 | Phase 2 | Complete |
-| REND-03 | Phase 2 | Complete |
-| INTR-01 | Phase 3 | Complete |
-| VIS-01 | Phase 4 | Complete |
-| VIS-02 | Phase 4 | Complete |
+| DEC-01 | — | Pending |
+| DEC-02 | — | Pending |
+| VIS-01 | — | Pending |
+| NODE-01 | — | Pending |
+| NODE-02 | — | Pending |
+| INFO-01 | — | Pending |
+| INFO-02 | — | Pending |
+| INFO-03 | — | Pending |
 
 **Coverage:**
-- v1.0 requirements: 10 total
-- Mapped to phases: 10
-- Unmapped: 0
+- v1.1 requirements: 8 total
+- Mapped to phases: 0
+- Unmapped: 8
 
 ---
-*Requirements defined: 2026-04-03*
-*Last updated: 2026-04-03 after roadmap creation*
+*Requirements defined: 2026-04-09*
+*Last updated: 2026-04-09 after initial definition*
