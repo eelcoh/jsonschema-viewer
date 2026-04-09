@@ -54,20 +54,20 @@ Requirements for milestone v1.1 Professional Visuals. Each maps to roadmap phase
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| DEC-01 | — | Pending |
-| DEC-02 | — | Pending |
-| VIS-01 | — | Pending |
-| NODE-01 | — | Pending |
-| NODE-02 | — | Pending |
-| INFO-01 | — | Pending |
-| INFO-02 | — | Pending |
-| INFO-03 | — | Pending |
+| DEC-01 | Phase 5 | Pending |
+| DEC-02 | Phase 5 | Pending |
+| VIS-01 | Phase 6 | Pending |
+| NODE-01 | Phase 7 | Pending |
+| NODE-02 | Phase 7 | Pending |
+| INFO-01 | Phase 7 | Pending |
+| INFO-02 | Phase 7 | Pending |
+| INFO-03 | Phase 7 | Pending |
 
 **Coverage:**
 - v1.1 requirements: 8 total
-- Mapped to phases: 0
-- Unmapped: 8
+- Mapped to phases: 8
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-04-09*
-*Last updated: 2026-04-09 after initial definition*
+*Last updated: 2026-04-09 after v1.1 roadmap creation*
