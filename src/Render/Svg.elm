@@ -189,6 +189,42 @@ toSvgCoordsTuple ( a, b ) =
     ( Svg.g [] a, b )
 
 
+combinatorIcon : Schema.CombinatorKind -> String
+combinatorIcon kind =
+    case kind of
+        Schema.OneOfKind ->
+            "|1|"
+
+        Schema.AnyOfKind ->
+            "|o|"
+
+        Schema.AllOfKind ->
+            "(&)"
+
+
+withCombinator : Set String -> Definitions -> Set String -> (String -> msg) -> String -> Float -> Maybe ( Schema.CombinatorKind, List Schema ) -> ( Svg msg, Dimensions ) -> ( Svg msg, Dimensions )
+withCombinator visited defs collapsedNodes toggleMsg path parentY maybeCombinator ( baseGraph, ( bw, bh ) ) =
+    case maybeCombinator of
+        Nothing ->
+            ( baseGraph, ( bw, bh ) )
+
+        Just ( kind, subSchemas ) ->
+            let
+                combPath =
+                    path ++ ".combinator"
+
+                ( combGraph, ( cw, ch ) ) =
+                    viewMulti visited defs collapsedNodes toggleMsg combPath ( bw + 10, parentY ) (combinatorIcon kind) Nothing subSchemas
+
+                combConnector =
+                    connectorPath ( bw, parentY + 14 ) ( bw + 10, parentY + 14 )
+
+                finalGraph =
+                    Svg.g [] [ baseGraph, combConnector, combGraph ]
+            in
+            ( finalGraph, ( cw, Basics.max bh ch ) )
+
+
 type alias Name =
     String
 
@@ -201,7 +237,7 @@ viewAnonymousSchema visited defs collapsedNodes toggleMsg path coords schema =
 viewSchema : Set String -> Definitions -> Set String -> (String -> msg) -> String -> Coordinates -> Maybe Name -> String -> Schema -> ( Svg msg, Dimensions )
 viewSchema visited defs collapsedNodes toggleMsg path (( x, y ) as coords) name weight schema =
     case schema of
-        Schema.Object { title, properties } ->
+        Schema.Object { title, properties, combinator } ->
             let
                 ( objectGraph, ( w, h ) ) =
                     iconRect IObject name weight coords
@@ -215,13 +251,39 @@ viewSchema visited defs collapsedNodes toggleMsg path (( x, y ) as coords) name 
                     ( propertiesGraphs, ( pw, ph ) ) =
                         viewProperties visited defs collapsedNodes toggleMsg path w y ( w + 10, y ) properties
 
-                    graphs =
-                        objectGraph :: propertiesGraphs
+                    ( allGraphs, finalDims ) =
+                        case combinator of
+                            Nothing ->
+                                ( objectGraph :: propertiesGraphs
+                                , ( pw, Basics.max h ph )
+                                )
+
+                            Just ( kind, subSchemas ) ->
+                                let
+                                    combStartY =
+                                        if List.isEmpty properties then
+                                            y
+
+                                        else
+                                            ph + ySpace
+
+                                    combPath =
+                                        path ++ ".combinator"
+
+                                    ( combGraph, ( cw, ch ) ) =
+                                        viewMulti visited defs collapsedNodes toggleMsg combPath ( w + 10, combStartY ) (combinatorIcon kind) Nothing subSchemas
+
+                                    combConnector =
+                                        connectorPath ( w, y + 14 ) ( w + 10, combStartY + 14 )
+                                in
+                                ( objectGraph :: propertiesGraphs ++ [ combConnector, combGraph ]
+                                , ( Basics.max pw cw, Basics.max (Basics.max h ph) ch )
+                                )
                 in
-                ( graphs, ( pw, Basics.max h ph ) )
+                ( allGraphs, finalDims )
                     |> toSvgCoordsTuple
 
-        Schema.Array { title, items } ->
+        Schema.Array { title, items, combinator } ->
             let
                 ( arrayGraph, ( w, h ) ) =
                     iconRect IList name weight coords
@@ -243,26 +305,53 @@ viewSchema visited defs collapsedNodes toggleMsg path (( x, y ) as coords) name 
                     itemConnector =
                         connectorPath ( w, y + 14 ) ( w + 10, y + 14 )
 
-                    graphs =
-                        [ arrayGraph, itemConnector, itemsGraph ]
+                    ( allGraphs, finalDims ) =
+                        case combinator of
+                            Nothing ->
+                                ( [ arrayGraph, itemConnector, itemsGraph ]
+                                , ( iw, Basics.max h ih )
+                                )
+
+                            Just ( kind, subSchemas ) ->
+                                let
+                                    combStartY =
+                                        ih + ySpace
+
+                                    combPath =
+                                        path ++ ".combinator"
+
+                                    ( combGraph, ( cw, ch ) ) =
+                                        viewMulti visited defs collapsedNodes toggleMsg combPath ( w + 10, combStartY ) (combinatorIcon kind) Nothing subSchemas
+
+                                    combConnector =
+                                        connectorPath ( w, y + 14 ) ( w + 10, combStartY + 14 )
+                                in
+                                ( [ arrayGraph, itemConnector, itemsGraph, combConnector, combGraph ]
+                                , ( Basics.max iw cw, Basics.max (Basics.max h ih) ch )
+                                )
                 in
-                ( graphs, ( iw, Basics.max h ih ) )
+                ( allGraphs, finalDims )
                     |> toSvgCoordsTuple
 
-        Schema.String { title } ->
+        Schema.String { title, combinator } ->
             viewString weight coords name
+                |> withCombinator visited defs collapsedNodes toggleMsg path y combinator
 
-        Schema.Integer { title } ->
+        Schema.Integer { title, combinator } ->
             viewInteger weight coords name
+                |> withCombinator visited defs collapsedNodes toggleMsg path y combinator
 
-        Schema.Number { title } ->
+        Schema.Number { title, combinator } ->
             viewFloat weight coords name
+                |> withCombinator visited defs collapsedNodes toggleMsg path y combinator
 
-        Schema.Boolean { title } ->
+        Schema.Boolean { title, combinator } ->
             viewBool weight coords name
+                |> withCombinator visited defs collapsedNodes toggleMsg path y combinator
 
-        Schema.Null { title } ->
+        Schema.Null { title, combinator } ->
             viewMaybeTitle coords "Null" name
+                |> withCombinator visited defs collapsedNodes toggleMsg path y combinator
 
         Schema.Ref { title, ref } ->
             let
