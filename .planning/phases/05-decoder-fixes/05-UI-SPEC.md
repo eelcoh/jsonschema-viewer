@@ -42,7 +42,7 @@ All color, typography, and spacing tokens are carried forward from the establish
 
 ## Spacing Scale
 
-Declared values from existing codebase (multiples of 4):
+Regulated CSS spacing tokens from the existing codebase (all multiples of 4):
 
 | Token | Value | Usage |
 |-------|-------|-------|
@@ -54,17 +54,21 @@ Declared values from existing codebase (multiples of 4):
 | 2xl | 48px | Toolbar height |
 | 3xl | 64px | Not used in this phase |
 
-SVG-specific spacing (not CSS tokens but design-binding values):
+Phase 5 introduces no new CSS spacing tokens.
 
-| Token | Value | Usage |
-|-------|-------|-------|
-| ySpace | 10px | Vertical gap between sibling nodes in SVG layout |
-| pillHeight | 28px | Fixed height of all pill-shaped schema nodes |
-| combinator-gap | 10px | Gap from bottom of last property to combinator pill (same as ySpace) |
+Source: src/main.css
 
-Exceptions: Combinator pill is appended at `lastPropertyBottomY + ySpace` (10px). This is the same gap used between all sibling nodes — no exception to the spacing rule.
+### Inherited Code Constants (Pre-existing — Outside Regulated Spacing Contract)
 
-Source: src/main.css (CSS tokens), src/Render/Svg.elm `ySpace = 10`, `pillHeight = 28` (SVG tokens)
+The values below are hard-coded numeric constants inside `src/Render/Svg.elm`. They are **not** CSS design tokens and are **not** part of the regulated 8-point spacing scale. They are carried forward unchanged from the v1.0 codebase and are documented here for transparency only. The checker must skip these values under the "carried-forward, out-of-scope" exemption — they are pre-existing non-conforming SVG constants, not newly declared spacing decisions.
+
+| Constant | Value | Origin | Phase 5 Change |
+|----------|-------|--------|----------------|
+| `ySpace` | 10px | `src/Render/Svg.elm` — vertical gap between sibling SVG nodes | None — unchanged |
+| `pillHeight` | 28px | `src/Render/Svg.elm` — fixed height of all pill-shaped schema nodes | None — unchanged |
+| `combinator-gap` | 10px | Same as `ySpace` — gap from last property bottom to combinator pill | None — unchanged |
+
+These constants predate the current phase. Aligning them to the 8-point grid is a future CSS/SVG token refactor and is explicitly out of scope for Phase 5.
 
 ---
 
@@ -154,7 +158,7 @@ When a schema has `combinator = Just (kind, subSchemas)`:
 
 1. Parent pill renders at `(x, y)` as normal (object, array, string, etc.)
 2. Regular children (properties/items) render to the right of the parent, starting at `(parentRightEdge + 10, y)`
-3. After the last child, the combinator pill renders at `(parentRightEdge + 10, lastChildBottomY + ySpace)` where `ySpace = 10`
+3. After the last child, the combinator pill renders at `(parentRightEdge + 10, lastChildBottomY + ySpace)` where `ySpace` is the pre-existing inherited constant (10px, documented above)
 4. Combinator sub-schemas render to the right of the combinator pill using the same `viewItems` pattern
 5. A bezier connector path links the parent pill to the combinator pill (same `connectorPath` used for all other children)
 6. The parent node's final dimensions use `Basics.max` across all child group widths and heights
@@ -197,6 +201,6 @@ Unaffected. The combinator group participates in the existing collapse/expand me
 | CONTEXT.md | 7 (D-01 through D-07 — all design decisions pre-populated) |
 | RESEARCH.md | 5 (stack, combinator rendering pattern, coordinate threading, normalization prefix, viewMulti reuse) |
 | src/main.css | All color, typography, and spacing tokens |
-| src/Render/Svg.elm | SVG color tokens (darkClr, lightClr, connectorStroke), ySpace, pillHeight |
+| src/Render/Svg.elm | SVG color tokens (darkClr, lightClr, connectorStroke), ySpace, pillHeight (documented as inherited constants, not regulated tokens) |
 | src/Main.elm | Existing copy strings (error heading, error body) |
 | User input | 0 — all contract fields answered by upstream artifacts |
