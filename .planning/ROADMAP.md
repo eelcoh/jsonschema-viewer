@@ -39,8 +39,8 @@ Full details: `.planning/milestones/v1.0-ROADMAP.md`
   3. Loading a TypeBox or Zod-generated schema no longer silently drops definitions
 **Plans:** 2 plans
 Plans:
-- [ ] 05-01-PLAN.md — Types + decoder: CombinatorKind, $defs support, $ref normalization, combinator field extraction, decoder tests
-- [ ] 05-02-PLAN.md — Renderer: combined schema rendering, TypeBox example, visual verification
+- [x] 05-01-PLAN.md — Types + decoder: CombinatorKind, $defs support, $ref normalization, combinator field extraction, decoder tests
+- [x] 05-02-PLAN.md — Renderer: combined schema rendering, TypeBox example, visual verification
 
 ### Phase 6: Blueprint Foundation
 **Goal**: Users see the diagram on a dark navy blueprint background with a centralized Theme system that sets contrast requirements for all subsequent visual work
