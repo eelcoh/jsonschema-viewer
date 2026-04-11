@@ -18,6 +18,7 @@ type ExampleSchema
     = ExampleArrays
     | ExamplePerson
     | ExampleNested
+    | ExampleTypeBox
 
 
 type alias Model =
@@ -226,6 +227,7 @@ viewExampleButtons selected =
         [ exampleButton ExampleArrays "Arrays" selected
         , exampleButton ExamplePerson "Person" selected
         , exampleButton ExampleNested "Nested" selected
+        , exampleButton ExampleTypeBox "TypeBox" selected
         ]
 
 
@@ -331,6 +333,9 @@ exampleContent example =
 
         ExampleNested ->
             exampleNestedJson
+
+        ExampleTypeBox ->
+            exampleTypeBoxJson
 
 
 exampleArraysJson : String
@@ -446,3 +451,43 @@ exampleNestedJson =
   }
 }
     """
+
+
+exampleTypeBoxJson : String
+exampleTypeBoxJson =
+    """{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "name": { "type": "string" },
+    "age": { "type": "integer" },
+    "address": { "$ref": "#/$defs/Address" }
+  },
+  "required": ["name"],
+  "oneOf": [
+    {
+      "properties": {
+        "role": { "type": "string", "enum": ["admin"] },
+        "permissions": { "type": "array", "items": { "type": "string" } }
+      },
+      "required": ["role"]
+    },
+    {
+      "properties": {
+        "role": { "type": "string", "enum": ["user"] }
+      },
+      "required": ["role"]
+    }
+  ],
+  "$defs": {
+    "Address": {
+      "type": "object",
+      "properties": {
+        "street": { "type": "string" },
+        "city": { "type": "string" },
+        "zip": { "type": "string" }
+      },
+      "required": ["street", "city"]
+    }
+  }
+}"""
