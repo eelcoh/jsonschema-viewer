@@ -37,7 +37,10 @@ Full details: `.planning/milestones/v1.0-ROADMAP.md`
   1. User can paste a JSON Schema 2020-12 document using `$defs` and see all definitions resolved and rendered
   2. User can load a schema with `type: "object"` combined with `oneOf`/`anyOf`/`allOf` and see both the object properties and combinator variants in the diagram
   3. Loading a TypeBox or Zod-generated schema no longer silently drops definitions
-**Plans**: TBD
+**Plans:** 2 plans
+Plans:
+- [ ] 05-01-PLAN.md — Types + decoder: CombinatorKind, $defs support, $ref normalization, combinator field extraction, decoder tests
+- [ ] 05-02-PLAN.md — Renderer: combined schema rendering, TypeBox example, visual verification
 
 ### Phase 6: Blueprint Foundation
 **Goal**: Users see the diagram on a dark navy blueprint background with a centralized Theme system that sets contrast requirements for all subsequent visual work
@@ -71,6 +74,6 @@ Full details: `.planning/milestones/v1.0-ROADMAP.md`
 | 2. Correct Rendering | v1.0 | 2/2 | Complete | 2026-04-04 |
 | 3. Expand/Collapse | v1.0 | 2/2 | Complete | 2026-04-05 |
 | 4. Visual Polish | v1.0 | 1/1 | Complete | 2026-04-06 |
-| 5. Decoder Fixes | v1.1 | 0/? | Not started | - |
+| 5. Decoder Fixes | v1.1 | 0/2 | In progress | - |
 | 6. Blueprint Foundation | v1.1 | 0/? | Not started | - |
 | 7. Node Design and Information Density | v1.1 | 0/? | Not started | - |
