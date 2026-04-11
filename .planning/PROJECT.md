@@ -10,11 +10,13 @@ Users can visually navigate and understand the structure of any JSON Schema docu
 
 ## Current State
 
-Shipped v1.0. The app is a fully functional interactive JSON Schema viewer:
-- 1,965 lines of Elm across 4 source files + tests
-- 24 unit tests passing
-- Supports paste, file upload, and example schemas
-- Renders all JSON Schema draft-07 constructs as SVG pill nodes
+Shipped v1.0. Phase 5 (Decoder Fixes) complete — the app now supports modern JSON Schema:
+- ~2,200 lines of Elm across 4 source files + tests
+- 31 unit tests passing (including 7 decoder round-trip tests)
+- Supports paste, file upload, and 4 example schemas (including TypeBox)
+- Renders all JSON Schema draft-07 and 2020-12 constructs as SVG pill nodes
+- `$defs` support with automatic `$ref` normalization to `#/definitions/` prefix
+- Combined type+combinator schemas render both typed structure and combinator variants
 - Interactive expand/collapse with `$ref` inline expansion and cycle detection
 - Cubic bezier connector lines and dashed `$ref` borders
 
@@ -50,7 +52,8 @@ Shipped v1.0. The app is a fully functional interactive JSON Schema viewer:
 - [ ] Hover tooltips showing node descriptions
 - [ ] String format annotations (email, date-time, uri) on nodes
 - [ ] Large schema performance (100+ definitions)
-- [ ] `$defs` support (JSON Schema 2020-12)
+- [x] `$defs` support (JSON Schema 2020-12) — Validated in Phase 5: Decoder Fixes
+- [x] Combined type+combinator schemas (e.g. object+oneOf) — Validated in Phase 5: Decoder Fixes
 
 ### Out of Scope
 
@@ -83,4 +86,4 @@ Shipped v1.0. The app is a fully functional interactive JSON Schema viewer:
 This document evolves at phase transitions and milestone boundaries.
 
 ---
-*Last updated: 2026-04-06 after v1.1 milestone start*
+*Last updated: 2026-04-11 after Phase 5 (Decoder Fixes) completion*
