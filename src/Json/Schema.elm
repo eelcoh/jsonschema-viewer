@@ -4,6 +4,7 @@ module Json.Schema exposing
     , BaseNumberSchema
     , BaseSchema
     , BooleanSchema
+    , CombinatorKind(..)
     , Definitions
     , IntegerSchema
     , Model
@@ -58,11 +59,18 @@ type alias Definitions =
     Dict String Schema
 
 
+type CombinatorKind
+    = OneOfKind
+    | AnyOfKind
+    | AllOfKind
+
+
 type alias BaseSchema extras =
     { extras
         | title : Maybe String
         , description : Maybe String
         , examples : List Encode.Value
+        , combinator : Maybe ( CombinatorKind, List Schema )
     }
 
 
@@ -80,8 +88,8 @@ type alias ObjectSchema =
         }
 
 
-object : Maybe String -> Maybe String -> Dict String Schema -> List String -> Maybe Int -> Maybe Int -> List Encode.Value -> Schema
-object title description properties required minProperties maxProperties examples =
+object : Maybe String -> Maybe String -> Dict String Schema -> List String -> Maybe Int -> Maybe Int -> List Encode.Value -> Maybe ( CombinatorKind, List Schema ) -> Schema
+object title description properties required minProperties maxProperties examples combinator =
     let
         isRequired p =
             List.member p required
@@ -100,6 +108,7 @@ object title description properties required minProperties maxProperties example
         , minProperties = minProperties
         , maxProperties = maxProperties
         , examples = examples
+        , combinator = combinator
         }
 
 
@@ -111,8 +120,8 @@ type alias ArraySchema =
         }
 
 
-array : Maybe String -> Maybe String -> Maybe Schema -> Maybe Int -> Maybe Int -> List Encode.Value -> Schema
-array title description items minItems maxItems examples =
+array : Maybe String -> Maybe String -> Maybe Schema -> Maybe Int -> Maybe Int -> List Encode.Value -> Maybe ( CombinatorKind, List Schema ) -> Schema
+array title description items minItems maxItems examples combinator =
     Array
         { title = title
         , description = description
@@ -120,6 +129,7 @@ array title description items minItems maxItems examples =
         , minItems = minItems
         , maxItems = maxItems
         , examples = examples
+        , combinator = combinator
         }
 
 
@@ -136,8 +146,8 @@ type alias IntegerSchema =
     BaseNumberSchema Int
 
 
-integer : Maybe String -> Maybe String -> Maybe Int -> Maybe Int -> Maybe (List Int) -> List Encode.Value -> Schema
-integer title description minumum maximum enum examples =
+integer : Maybe String -> Maybe String -> Maybe Int -> Maybe Int -> Maybe (List Int) -> List Encode.Value -> Maybe ( CombinatorKind, List Schema ) -> Schema
+integer title description minumum maximum enum examples combinator =
     Integer
         { title = title
         , description = description
@@ -145,6 +155,7 @@ integer title description minumum maximum enum examples =
         , maximum = maximum
         , enum = enum
         , examples = examples
+        , combinator = combinator
         }
 
 
@@ -152,8 +163,8 @@ type alias NumberSchema =
     BaseNumberSchema Float
 
 
-float : Maybe String -> Maybe String -> Maybe Float -> Maybe Float -> Maybe (List Float) -> List Encode.Value -> Schema
-float title description minumum maximum enum examples =
+float : Maybe String -> Maybe String -> Maybe Float -> Maybe Float -> Maybe (List Float) -> List Encode.Value -> Maybe ( CombinatorKind, List Schema ) -> Schema
+float title description minumum maximum enum examples combinator =
     Number
         { title = title
         , description = description
@@ -161,6 +172,7 @@ float title description minumum maximum enum examples =
         , maximum = maximum
         , enum = enum
         , examples = examples
+        , combinator = combinator
         }
 
 
@@ -180,8 +192,8 @@ type alias StringSchema =
         )
 
 
-string : Maybe String -> Maybe String -> Maybe Int -> Maybe Int -> Maybe String -> Maybe StringFormat -> Maybe (List String) -> List Encode.Value -> StringSchema
-string title description minLength maxLength pattern format enum examples =
+string : Maybe String -> Maybe String -> Maybe Int -> Maybe Int -> Maybe String -> Maybe StringFormat -> Maybe (List String) -> List Encode.Value -> Maybe ( CombinatorKind, List Schema ) -> StringSchema
+string title description minLength maxLength pattern format enum examples combinator =
     { title = title
     , description = description
     , examples = examples
@@ -190,6 +202,7 @@ string title description minLength maxLength pattern format enum examples =
     , pattern = pattern
     , format = format
     , enum = enum
+    , combinator = combinator
     }
 
 
@@ -197,13 +210,14 @@ type alias BooleanSchema =
     WithEnumSchema Bool (BaseSchema {})
 
 
-boolean : Maybe String -> Maybe String -> Maybe (List Bool) -> List Encode.Value -> Schema
-boolean title description enum examples =
+boolean : Maybe String -> Maybe String -> Maybe (List Bool) -> List Encode.Value -> Maybe ( CombinatorKind, List Schema ) -> Schema
+boolean title description enum examples combinator =
     Boolean
         { title = title
         , description = description
         , enum = enum
         , examples = examples
+        , combinator = combinator
         }
 
 
@@ -211,12 +225,13 @@ type alias NullSchema =
     BaseSchema {}
 
 
-null : Maybe String -> Maybe String -> List Encode.Value -> Schema
-null title description examples =
+null : Maybe String -> Maybe String -> List Encode.Value -> Maybe ( CombinatorKind, List Schema ) -> Schema
+null title description examples combinator =
     Null
         { title = title
         , description = description
         , examples = examples
+        , combinator = combinator
         }
 
 
@@ -226,13 +241,14 @@ type alias RefSchema =
         }
 
 
-reference : Maybe String -> Maybe String -> String -> List Encode.Value -> Schema
-reference title description ref examples =
+reference : Maybe String -> Maybe String -> String -> List Encode.Value -> Maybe ( CombinatorKind, List Schema ) -> Schema
+reference title description ref examples combinator =
     Ref
         { title = title
         , description = description
         , ref = ref
         , examples = examples
+        , combinator = combinator
         }
 
 
@@ -248,6 +264,7 @@ baseCombinatorSchema title description subSchemas examples =
     , description = description
     , subSchemas = subSchemas
     , examples = examples
+    , combinator = Nothing
     }
 
 
