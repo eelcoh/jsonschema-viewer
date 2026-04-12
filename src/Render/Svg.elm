@@ -1,7 +1,5 @@
 module Render.Svg exposing (view, viewBoxString, extractRefName, isCircularRef, refLabel, fontWeightForRequired, toggleInSet, connectorPathD)
 
-import Color exposing (gray)
-import Color.Convert
 import Dict
 import Html exposing (text)
 import Json.Decode
@@ -9,6 +7,7 @@ import Json.Schema as Schema exposing (Definitions, Schema)
 import Set exposing (Set)
 import Svg exposing (Svg)
 import Svg.Attributes as SvgA exposing (refY)
+import Render.Theme as Theme
 import Svg.Events
 import Svg.Lazy exposing (lazy)
 
@@ -47,7 +46,38 @@ view toggleMsg collapsedNodes defs schema =
         , SvgA.height "100%"
         , SvgA.viewBox vb
         ]
-        [ schemaView ]
+        [ Svg.defs []
+            [ Svg.pattern
+                [ SvgA.id "dot-grid"
+                , SvgA.x "0"
+                , SvgA.y "0"
+                , SvgA.width "20"
+                , SvgA.height "20"
+                , SvgA.patternUnits "userSpaceOnUse"
+                ]
+                [ Svg.circle
+                    [ SvgA.cx "10"
+                    , SvgA.cy "10"
+                    , SvgA.r "0.5"
+                    , SvgA.fill Theme.gridDot
+                    ]
+                    []
+                ]
+            ]
+        , Svg.rect
+            [ SvgA.width "100%"
+            , SvgA.height "100%"
+            , SvgA.fill Theme.background
+            ]
+            []
+        , Svg.rect
+            [ SvgA.width "100%"
+            , SvgA.height "100%"
+            , SvgA.fill "url(#dot-grid)"
+            ]
+            []
+        , schemaView
+        ]
 
 
 clickableGroup : msg -> ( Svg.Svg msg, Dimensions ) -> ( Svg.Svg msg, Dimensions )
@@ -552,15 +582,15 @@ roundRect txt ( x, y ) =
                 |> String.fromFloat
 
         bg =
-            darkClr
+            Theme.nodeFill
                 |> SvgA.fill
 
         fg =
-            lightClr
+            Theme.nodeText
                 |> SvgA.fill
 
         border =
-            lightClr
+            Theme.nodeBorder
                 |> SvgA.stroke
 
         caption c =
@@ -587,7 +617,7 @@ roundRect txt ( x, y ) =
                 , SvgA.height "28"
                 , bg
                 , border
-                , SvgA.strokeWidth "0.2"
+                , SvgA.strokeWidth "1"
                 , SvgA.rx "2"
                 , SvgA.ry "2"
                 ]
@@ -639,11 +669,11 @@ iconRect icon txt weight ( x, y ) =
             String.fromFloat rectWidth
 
         bg =
-            darkClr
+            Theme.nodeFill
                 |> SvgA.fill
 
         border =
-            lightClr
+            Theme.nodeBorder
                 |> SvgA.stroke
 
         dashAttrs =
@@ -662,7 +692,7 @@ iconRect icon txt weight ( x, y ) =
                  , SvgA.height "28"
                  , bg
                  , border
-                 , SvgA.strokeWidth "0.2"
+                 , SvgA.strokeWidth "1"
                  , SvgA.rx "2"
                  , SvgA.ry "2"
                  ]
@@ -690,7 +720,7 @@ viewNameGraph weight ( x, y ) name =
             computeTextWidth name
 
         fg =
-            lightClr
+            Theme.nodeText
                 |> SvgA.fill
 
         caption c =
@@ -737,7 +767,7 @@ separatorGraph ( x, y ) =
                 |> String.fromFloat
 
         strokeColor =
-            lightClr
+            Theme.nodeBorder
                 |> SvgA.stroke
 
         strokeWidth =
@@ -809,7 +839,7 @@ iconGeneric ( x, y ) iconStr =
             computeVerticalText y
 
         fg =
-            lightClr
+            Theme.nodeText
                 |> SvgA.fill
 
         attrs =
@@ -855,19 +885,6 @@ computeVerticalText y =
     y + 15
 
 
-color r g b =
-    Color.rgb r g b
-        |> Color.Convert.colorToHex
-
-
-lightClr =
-    "#e6e6e6"
-
-
-darkClr =
-    color 57 114 206
-
-
 connectorPathD : Coordinates -> Coordinates -> String
 connectorPathD ( startX, startY ) ( endX, endY ) =
     let
@@ -896,7 +913,7 @@ connectorPath : Coordinates -> Coordinates -> Svg msg
 connectorPath start end =
     Svg.path
         [ SvgA.d (connectorPathD start end)
-        , SvgA.stroke "#8baed6"
+        , SvgA.stroke Theme.connector
         , SvgA.strokeWidth "1.5"
         , SvgA.strokeLinecap "round"
         , SvgA.fill "none"
