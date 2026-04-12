@@ -24,7 +24,7 @@ Full details: `.planning/milestones/v1.0-ROADMAP.md`
 **Milestone Goal:** Transform the diagram from a proof-of-concept look into a professional blueprint-style technical diagram with richer schema information and broader format support.
 
 - [ ] **Phase 5: Decoder Fixes** - Correct $defs resolution and combined type+combinator rendering
-- [ ] **Phase 6: Blueprint Foundation** - Dark navy background with Theme module and color-safe contrast
+- [x] **Phase 6: Blueprint Foundation** - Dark navy background with Theme module and color-safe contrast (completed 2026-04-12)
 - [ ] **Phase 7: Node Design and Information Density** - Visual property markers, format badges, inline descriptions, constraints, and enum values
 
 ## Phase Details
@@ -50,9 +50,9 @@ Plans:
   1. User sees the entire diagram rendered on a dark navy background (approximately #1a2332)
   2. All existing node text and borders remain legible with sufficient contrast on the dark background
   3. A `Render.Theme` module exists that centralizes all visual constants — subsequent phases change values in one place
-**Plans:** 1 plan
+**Plans:** 1/1 plans complete
 Plans:
-- [ ] 06-01-PLAN.md — Theme module, SVG color migration + background/grid, CSS dark adaptation
+- [x] 06-01-PLAN.md — Theme module, SVG color migration + background/grid, CSS dark adaptation
 
 ### Phase 7: Node Design and Information Density
 **Goal**: Users can distinguish required from optional properties at a glance and read schema metadata (descriptions, constraints, formats, enums) directly on diagram nodes
@@ -76,5 +76,5 @@ Plans:
 | 3. Expand/Collapse | v1.0 | 2/2 | Complete | 2026-04-05 |
 | 4. Visual Polish | v1.0 | 1/1 | Complete | 2026-04-06 |
 | 5. Decoder Fixes | v1.1 | 0/2 | In progress | - |
-| 6. Blueprint Foundation | v1.1 | 0/1 | Not started | - |
+| 6. Blueprint Foundation | v1.1 | 1/1 | Complete   | 2026-04-12 |
 | 7. Node Design and Information Density | v1.1 | 0/? | Not started | - |
