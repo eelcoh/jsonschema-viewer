@@ -10,7 +10,7 @@ Users can visually navigate and understand the structure of any JSON Schema docu
 
 ## Current State
 
-Shipped v1.0. Phase 5 (Decoder Fixes) complete — the app now supports modern JSON Schema:
+Phase 6 (Blueprint Foundation) complete — the diagram now renders with a dark blueprint visual style:
 - ~2,200 lines of Elm across 4 source files + tests
 - 31 unit tests passing (including 7 decoder round-trip tests)
 - Supports paste, file upload, and 4 example schemas (including TypeBox)
@@ -19,6 +19,9 @@ Shipped v1.0. Phase 5 (Decoder Fixes) complete — the app now supports modern J
 - Combined type+combinator schemas render both typed structure and combinator variants
 - Interactive expand/collapse with `$ref` inline expansion and cycle detection
 - Cubic bezier connector lines and dashed `$ref` borders
+- Dark navy background (#1a2332) with subtle dot grid pattern
+- Outlined node style (transparent fill, light borders) on dark canvas
+- Centralized `Render.Theme` module with all color constants
 
 ## Current Milestone: v1.1 Professional Visuals
 
@@ -86,4 +89,4 @@ Shipped v1.0. Phase 5 (Decoder Fixes) complete — the app now supports modern J
 This document evolves at phase transitions and milestone boundaries.
 
 ---
-*Last updated: 2026-04-11 after Phase 5 (Decoder Fixes) completion*
+*Last updated: 2026-04-12 after Phase 6 (Blueprint Foundation) completion*
