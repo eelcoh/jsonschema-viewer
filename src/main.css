@@ -136,7 +136,7 @@ body {
 .diagram-panel {
     flex: 1;
     overflow: auto;
-    background: #ffffff;
+    background: #1a2332;
 }
 
 /* Error display */
@@ -154,7 +154,7 @@ body {
 .error-heading {
     font-size: 20px;
     font-weight: 600;
-    color: #cf222e;
+    color: #ff8591;
     margin: 0 0 8px 0;
     width: 100%;
 }
@@ -162,7 +162,7 @@ body {
 .error-body {
     font-size: 14px;
     font-weight: 400;
-    color: #293c4b;
+    color: #c8d8e8;
     margin: 0 0 16px 0;
     width: 100%;
 }
@@ -170,9 +170,9 @@ body {
 .error-detail {
     font-size: 13px;
     font-weight: 400;
-    color: #293c4b;
+    color: #c8d8e8;
     font-family: monospace;
-    background: #f6f8fa;
+    background: #0f1822;
     padding: 16px;
     overflow-x: auto;
     width: 100%;
