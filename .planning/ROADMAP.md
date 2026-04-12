@@ -64,8 +64,11 @@ Plans:
   3. User can read a node's description as secondary text when the schema has a `description` field
   4. User can see numeric and length constraints (min/max value, min/max length, pattern) displayed in compact notation on nodes that declare them
   5. User can see enum values displayed on nodes that define an `enum` field
-**Plans**: TBD
+**Plans:** 2 plans
 **UI hint**: yes
+Plans:
+- [ ] 07-01-PLAN.md — Theme constants, Icon type extension, iconForSchema dispatch, required border, unit tests
+- [ ] 07-02-PLAN.md — Hover state wiring, overlay rendering, metadata extraction, visual verification
 
 ## Progress
 
@@ -77,4 +80,4 @@ Plans:
 | 4. Visual Polish | v1.0 | 1/1 | Complete | 2026-04-06 |
 | 5. Decoder Fixes | v1.1 | 0/2 | In progress | - |
 | 6. Blueprint Foundation | v1.1 | 1/1 | Complete   | 2026-04-12 |
-| 7. Node Design and Information Density | v1.1 | 0/? | Not started | - |
+| 7. Node Design and Information Density | v1.1 | 0/2 | Not started | - |
