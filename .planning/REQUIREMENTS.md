@@ -14,7 +14,7 @@ Requirements for milestone v1.1 Professional Visuals. Each maps to roadmap phase
 
 ### Visual Style
 
-- [ ] **VIS-01**: User sees the diagram rendered on a dark navy blueprint-style background with appropriate contrast for all text and nodes
+- [x] **VIS-01**: User sees the diagram rendered on a dark navy blueprint-style background with appropriate contrast for all text and nodes
 
 ### Node Design
 
@@ -56,7 +56,7 @@ Requirements for milestone v1.1 Professional Visuals. Each maps to roadmap phase
 |-------------|-------|--------|
 | DEC-01 | Phase 5 | Pending |
 | DEC-02 | Phase 5 | Pending |
-| VIS-01 | Phase 6 | Pending |
+| VIS-01 | Phase 6 | Complete |
 | NODE-01 | Phase 7 | Complete |
 | NODE-02 | Phase 7 | Complete |
 | INFO-01 | Phase 7 | Pending |
