@@ -9,7 +9,7 @@ import Json.Decode exposing (decodeString)
 import Json.Schema
 import Json.Schema.Decode
 import Process
-import Render.Svg as Render
+import Render.Svg as Render exposing (HoverState)
 import Set exposing (Set)
 import Task
 
@@ -31,6 +31,7 @@ type alias Model =
     , selectedExample : ExampleSchema
     , dragHover : Bool
     , collapsedNodes : Set String
+    , hoveredNode : Maybe HoverState
     }
 
 
@@ -45,6 +46,8 @@ type Msg
     | DragLeave
     | NoOp
     | ToggleNode String
+    | HoverNode HoverState
+    | UnhoverNode
 
 
 main : Program () Model Msg
@@ -81,6 +84,7 @@ init _ =
       , selectedExample = ExampleArrays
       , dragHover = False
       , collapsedNodes = Set.empty
+      , hoveredNode = Nothing
       }
     , Cmd.none
     )
@@ -112,6 +116,7 @@ update msg model =
                 , debounceGeneration = newGen
                 , displayErrors = False
                 , collapsedNodes = Set.empty
+                , hoveredNode = Nothing
               }
             , Process.sleep 800
                 |> Task.perform (\_ -> DebounceTimeout newGen)
@@ -148,6 +153,7 @@ update msg model =
                 , lastValidSchema = newLastValid
                 , displayErrors = True
                 , collapsedNodes = Set.empty
+                , hoveredNode = Nothing
               }
             , Cmd.none
             )
@@ -173,6 +179,7 @@ update msg model =
                 , selectedExample = example
                 , displayErrors = False
                 , collapsedNodes = Set.empty
+                , hoveredNode = Nothing
               }
             , Cmd.none
             )
@@ -190,6 +197,12 @@ update msg model =
             ( { model | collapsedNodes = Render.toggleInSet pathKey model.collapsedNodes }
             , Cmd.none
             )
+
+        HoverNode hoverState ->
+            ( { model | hoveredNode = Just hoverState }, Cmd.none )
+
+        UnhoverNode ->
+            ( { model | hoveredNode = Nothing }, Cmd.none )
 
         NoOp ->
             ( model, Cmd.none )
@@ -295,7 +308,7 @@ viewDiagramPanel model =
     div [ Attr.class "diagram-panel" ]
         [ case model.parsedSchema of
             Ok spec ->
-                Render.view ToggleNode model.collapsedNodes spec.definitions spec.schema
+                Render.view ToggleNode HoverNode UnhoverNode model.hoveredNode model.collapsedNodes spec.definitions spec.schema
 
             Err e ->
                 if model.displayErrors then
@@ -304,7 +317,7 @@ viewDiagramPanel model =
                 else
                     case model.lastValidSchema of
                         Just spec ->
-                            Render.view ToggleNode model.collapsedNodes spec.definitions spec.schema
+                            Render.view ToggleNode HoverNode UnhoverNode model.hoveredNode model.collapsedNodes spec.definitions spec.schema
 
                         Nothing ->
                             viewError e
