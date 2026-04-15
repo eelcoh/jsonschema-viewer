@@ -5,11 +5,11 @@ subsystem: Render.Svg / Main
 tags: [hover-overlay, metadata, info-density, mouseenter, HoverState]
 dependency_graph:
   requires: ["07-01"]
-  provides: [viewHoverOverlay, HoverState, NodeMeta, metaForSchema, hover-event-wiring]
+  provides: [HoverState, NodeMeta, metaForSchema, hover-event-wiring, HTML-overlay]
   affects: [src/Main.elm, src/Render/Svg.elm]
 tech_stack:
   added: []
-  patterns: [ViewConfig record threading, withHoverEvents wrapper, coordinate-based overlay positioning]
+  patterns: [ViewConfig record threading, withHoverEvents wrapper, fixed-position HTML overlay via clientX/clientY]
 key_files:
   created: []
   modified:
@@ -18,7 +18,7 @@ key_files:
 decisions:
   - "Thread ViewConfig record through all view functions instead of adding 3 separate hover params to every recursive signature"
   - "Apply withHoverEvents at viewSchema level where path, schema, config, and coords are all available"
-  - "Overlay positioned at x=pill_right+8 so it appears to the right without shifting diagram layout"
+  - "Overlay rendered as fixed-position HTML div using mouse clientX/clientY instead of SVG coordinates — SVG overlay fell outside viewBox"
   - "hasMetadata guard skips hover wiring for nodes with no metadata to avoid spurious events"
 metrics:
   duration: ~20 minutes
@@ -71,15 +71,15 @@ Implemented full hover overlay system that surfaces schema metadata (description
 
 ## Deviations from Plan
 
-### Auto-fixed Issues
+### Overlay positioning (critical fix during human verification)
 
-None — plan executed exactly as written with one minor implementation detail:
+The original plan positioned the overlay inside the SVG at `x = pill_right + 8` in SVG coordinates. During human verification, the overlay rendered outside the SVG viewBox with no way to make it visible. Fix: switched to a `position: fixed` HTML `div` using mouse `clientX`/`clientY` from the DOM event. The overlay now appears near the cursor and is always within the browser viewport. `pointer-events: none` prevents interference with hover detection.
 
-The `metaForSchema` for `Schema.String` in the plan showed `{ description, minLength, maxLength, pattern, enum }` but the plan text body initially omitted `enum` from the pattern. Added it to correctly extract string enum values, consistent with the Integer/Number/Boolean handling.
+This moved overlay rendering from `Render.Svg` (SVG `viewHoverOverlay`) to `Main.elm` (HTML `viewHoverOverlay`). The `Render.Svg.view` signature no longer takes `Maybe HoverState`.
 
 ## Known Stubs
 
-None. The hover overlay is fully wired end-to-end: pill nodes with metadata fire `HoverNode` on mouseenter, Main.elm stores the state, `Render.view` receives `hoveredNode` and passes it to `viewHoverOverlay` which renders the overlay panel as the last SVG child.
+None. The hover overlay is fully wired end-to-end: pill nodes with metadata fire `HoverNode` on mouseenter with clientX/clientY, Main.elm stores the state, and `viewDiagramPanel` renders a fixed-position HTML overlay div on top of the SVG.
 
 ## Self-Check: PASSED
 
