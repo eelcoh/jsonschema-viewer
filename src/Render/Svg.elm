@@ -34,9 +34,8 @@ type alias NodeMeta =
 
 type alias HoverState =
     { path : String
-    , x : Float
-    , y : Float
-    , w : Float
+    , clientX : Float
+    , clientY : Float
     , meta : NodeMeta
     }
 
@@ -56,8 +55,8 @@ pillHeight =
     28
 
 
-view : (String -> msg) -> (HoverState -> msg) -> msg -> Maybe HoverState -> Set String -> Definitions -> Schema -> Html.Html msg
-view toggleMsg hoverMsg unhoverMsg hoveredNode collapsedNodes defs schema =
+view : (String -> msg) -> (HoverState -> msg) -> msg -> Set String -> Definitions -> Schema -> Html.Html msg
+view toggleMsg hoverMsg unhoverMsg collapsedNodes defs schema =
     let
         config =
             { toggleMsg = toggleMsg
@@ -70,9 +69,6 @@ view toggleMsg hoverMsg unhoverMsg hoveredNode collapsedNodes defs schema =
 
         vb =
             viewBoxString w h 20
-
-        overlayView =
-            viewHoverOverlay hoveredNode
     in
     Svg.svg
         [ SvgA.width "100%"
@@ -110,7 +106,6 @@ view toggleMsg hoverMsg unhoverMsg hoveredNode collapsedNodes defs schema =
             ]
             []
         , schemaView
-        , overlayView
         ]
 
 
@@ -274,17 +269,21 @@ withHoverEvents config path schema icon ( ox, oy ) ( svg, ( w, h ) ) =
 
     else
         let
-            hoverState =
-                { path = path
-                , x = w + 8
-                , y = oy
-                , w = w - ox
-                , meta = meta
-                }
+            hoverDecoder =
+                Json.Decode.map2
+                    (\cx cy ->
+                        config.hoverMsg
+                            { path = path
+                            , clientX = cx
+                            , clientY = cy
+                            , meta = meta
+                            }
+                    )
+                    (Json.Decode.field "clientX" Json.Decode.float)
+                    (Json.Decode.field "clientY" Json.Decode.float)
 
             hoverAttrs =
-                [ Svg.Events.on "mouseenter"
-                    (Json.Decode.succeed (config.hoverMsg hoverState))
+                [ Svg.Events.on "mouseenter" hoverDecoder
                 , Svg.Events.on "mouseleave"
                     (Json.Decode.succeed config.unhoverMsg)
                 ]
@@ -1230,165 +1229,3 @@ hasMetadata meta =
         || meta.baseType /= Nothing
 
 
--- Hover overlay rendering
-
-
-viewHoverOverlay : Maybe HoverState -> Svg msg
-viewHoverOverlay maybeHover =
-    case maybeHover of
-        Nothing ->
-            Svg.g [] []
-
-        Just { x, y, meta } ->
-            let
-                rows =
-                    buildOverlayRows meta
-
-                rowCount =
-                    List.length rows
-
-                overlayWidth =
-                    240
-
-                hPad =
-                    12
-
-                vPad =
-                    8
-
-                rowHeight =
-                    18
-
-                overlayHeight =
-                    toFloat (vPad * 2 + rowCount * rowHeight)
-            in
-            if rowCount == 0 then
-                Svg.g [] []
-
-            else
-                Svg.g []
-                    [ Svg.rect
-                        [ SvgA.x (String.fromFloat x)
-                        , SvgA.y (String.fromFloat y)
-                        , SvgA.width (String.fromFloat overlayWidth)
-                        , SvgA.height (String.fromFloat overlayHeight)
-                        , SvgA.fill Theme.overlayBg
-                        , SvgA.stroke Theme.overlayBorder
-                        , SvgA.strokeWidth "1"
-                        , SvgA.rx "4"
-                        , SvgA.ry "4"
-                        ]
-                        []
-                    , Svg.g [] (List.indexedMap (renderOverlayRow x y hPad vPad rowHeight) rows)
-                    ]
-
-
-type alias OverlayRow =
-    { key : String
-    , value : String
-    }
-
-
-buildOverlayRows : NodeMeta -> List OverlayRow
-buildOverlayRows meta =
-    let
-        typeRow =
-            case meta.baseType of
-                Just t ->
-                    [ { key = "type", value = t } ]
-
-                Nothing ->
-                    []
-
-        descRow =
-            case meta.description of
-                Just d ->
-                    let
-                        lines =
-                            wrapText 42 d
-                    in
-                    List.map (\line -> { key = "desc", value = line }) lines
-
-                Nothing ->
-                    []
-
-        enumRow =
-            case meta.enumValues of
-                Just vals ->
-                    let
-                        shown =
-                            List.take 5 vals
-
-                        overflow =
-                            List.length vals - 5
-
-                        valStr =
-                            String.join ", " (List.map (\v -> "\"" ++ v ++ "\"") shown)
-                                ++ (if overflow > 0 then
-                                        ", +" ++ String.fromInt overflow ++ " more"
-
-                                    else
-                                        ""
-                                   )
-                    in
-                    [ { key = "enum", value = valStr } ]
-
-                Nothing ->
-                    []
-
-        constraintRows =
-            List.map (\( k, v ) -> { key = k, value = v }) meta.constraints
-    in
-    typeRow ++ descRow ++ enumRow ++ constraintRows
-
-
-wrapText : Int -> String -> List String
-wrapText maxChars text_ =
-    if String.length text_ <= maxChars then
-        [ text_ ]
-
-    else
-        let
-            chunk =
-                String.left maxChars text_
-
-            rest =
-                String.dropLeft maxChars text_
-        in
-        chunk :: wrapText maxChars rest
-
-
-renderOverlayRow : Float -> Float -> Int -> Int -> Int -> Int -> OverlayRow -> Svg msg
-renderOverlayRow panelX panelY hPad vPad rowHeight idx row =
-    let
-        rowY =
-            panelY + toFloat vPad + toFloat idx * toFloat rowHeight + toFloat rowHeight / 2
-
-        keyX =
-            panelX + toFloat hPad
-
-        valueX =
-            keyX + 60
-    in
-    Svg.g []
-        [ Svg.text_
-            [ SvgA.x (String.fromFloat keyX)
-            , SvgA.y (String.fromFloat rowY)
-            , SvgA.fill Theme.overlayKeyText
-            , SvgA.fontFamily "Monospace"
-            , SvgA.fontSize "11"
-            , SvgA.fontWeight "400"
-            , SvgA.dominantBaseline "middle"
-            ]
-            [ Svg.text row.key ]
-        , Svg.text_
-            [ SvgA.x (String.fromFloat valueX)
-            , SvgA.y (String.fromFloat rowY)
-            , SvgA.fill Theme.nodeText
-            , SvgA.fontFamily "Monospace"
-            , SvgA.fontSize "11"
-            , SvgA.fontWeight "700"
-            , SvgA.dominantBaseline "middle"
-            ]
-            [ Svg.text row.value ]
-        ]

@@ -9,7 +9,7 @@ import Json.Decode exposing (decodeString)
 import Json.Schema
 import Json.Schema.Decode
 import Process
-import Render.Svg as Render exposing (HoverState)
+import Render.Svg as Render exposing (HoverState, NodeMeta)
 import Set exposing (Set)
 import Task
 
@@ -305,10 +305,13 @@ viewInputPanel model =
 
 viewDiagramPanel : Model -> Html Msg
 viewDiagramPanel model =
-    div [ Attr.class "diagram-panel" ]
+    div
+        [ Attr.class "diagram-panel"
+        , Attr.style "position" "relative"
+        ]
         [ case model.parsedSchema of
             Ok spec ->
-                Render.view ToggleNode HoverNode UnhoverNode model.hoveredNode model.collapsedNodes spec.definitions spec.schema
+                Render.view ToggleNode HoverNode UnhoverNode model.collapsedNodes spec.definitions spec.schema
 
             Err e ->
                 if model.displayErrors then
@@ -317,11 +320,109 @@ viewDiagramPanel model =
                 else
                     case model.lastValidSchema of
                         Just spec ->
-                            Render.view ToggleNode HoverNode UnhoverNode model.hoveredNode model.collapsedNodes spec.definitions spec.schema
+                            Render.view ToggleNode HoverNode UnhoverNode model.collapsedNodes spec.definitions spec.schema
 
                         Nothing ->
                             viewError e
+        , viewHoverOverlay model.hoveredNode
         ]
+
+
+viewHoverOverlay : Maybe HoverState -> Html Msg
+viewHoverOverlay maybeHover =
+    case maybeHover of
+        Nothing ->
+            text ""
+
+        Just { clientX, clientY, meta } ->
+            let
+                rows =
+                    buildOverlayRows meta
+            in
+            if List.isEmpty rows then
+                text ""
+
+            else
+                div
+                    [ Attr.style "position" "fixed"
+                    , Attr.style "left" (String.fromFloat (clientX + 12) ++ "px")
+                    , Attr.style "top" (String.fromFloat (clientY - 8) ++ "px")
+                    , Attr.style "background" "#0f1e30"
+                    , Attr.style "border" "1px solid #3a5a7a"
+                    , Attr.style "border-radius" "4px"
+                    , Attr.style "padding" "8px 12px"
+                    , Attr.style "font-family" "monospace"
+                    , Attr.style "font-size" "11px"
+                    , Attr.style "pointer-events" "none"
+                    , Attr.style "z-index" "1000"
+                    , Attr.style "max-width" "300px"
+                    ]
+                    (List.map viewOverlayRow rows)
+
+
+viewOverlayRow : ( String, String ) -> Html Msg
+viewOverlayRow ( key, value ) =
+    div [ Attr.style "margin" "2px 0" ]
+        [ Html.span
+            [ Attr.style "color" "#8ab0d0"
+            , Attr.style "font-weight" "400"
+            ]
+            [ text (key ++ "  ") ]
+        , Html.span
+            [ Attr.style "color" "#e8f0f8"
+            , Attr.style "font-weight" "700"
+            ]
+            [ text value ]
+        ]
+
+
+buildOverlayRows : NodeMeta -> List ( String, String )
+buildOverlayRows meta =
+    let
+        typeRow =
+            case meta.baseType of
+                Just t ->
+                    [ ( "type", t ) ]
+
+                Nothing ->
+                    []
+
+        descRow =
+            case meta.description of
+                Just d ->
+                    [ ( "desc", d ) ]
+
+                Nothing ->
+                    []
+
+        enumRow =
+            case meta.enumValues of
+                Just vals ->
+                    let
+                        shown =
+                            List.take 5 vals
+
+                        overflow =
+                            List.length vals - 5
+
+                        valStr =
+                            String.join ", " (List.map (\v -> "\"" ++ v ++ "\"") shown)
+                                ++ (if overflow > 0 then
+                                        ", +" ++ String.fromInt overflow ++ " more"
+
+                                    else
+                                        ""
+                                   )
+                    in
+                    [ ( "enum", valStr ) ]
+
+                Nothing ->
+                    []
+
+        constraintRows =
+            List.map (\( k, v ) -> ( k, v )) meta.constraints
+    in
+    typeRow ++ descRow ++ enumRow ++ constraintRows
 
 
 viewError : Json.Decode.Error -> Html Msg
