@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Professional Visuals
 status: verifying
-stopped_at: Phase 7 context gathered
-last_updated: "2026-04-12T12:53:14.904Z"
+stopped_at: Completed 07-01-PLAN.md
+last_updated: "2026-04-15T17:52:41.518Z"
 last_activity: 2026-04-12
 progress:
   total_phases: 3
   completed_phases: 2
-  total_plans: 3
-  completed_plans: 3
+  total_plans: 5
+  completed_plans: 4
   percent: 0
 ---
 
@@ -53,6 +53,7 @@ Progress: [░░░░░░░░░░] 0%
 
 *Updated after each plan completion*
 | Phase 06 P01 | 10 | 3 tasks | 3 files |
+| Phase 07 P01 | 15 | 1 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -66,6 +67,9 @@ Recent decisions affecting current work:
 - [v1.1 scoping]: Type-based color coding and type-colored connectors deferred to future milestone per user selection
 - [Phase 06]: strokeWidth increased from 0.2 to 1 for visible outlined node borders on dark background
 - [Phase 06]: color helper function and lightClr/darkClr removed; Render.Theme replaces all color references
+- [Phase 07-01]: Expose Icon(..) from Render.Svg to enable direct pattern match assertions in unit tests
+- [Phase 07-01]: Remove viewString/viewBool/viewFloat/viewInteger helpers in favor of direct iconRect+iconForSchema for correct icon dispatch
+- [Phase 07-01]: Thread isRequired Bool through viewSchema to drive borderColorForRequired in iconRect
 
 ### Pending Todos
 
@@ -78,6 +82,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-12T12:53:14.901Z
-Stopped at: Phase 7 context gathered
-Resume file: .planning/phases/07-node-design-and-information-density/07-CONTEXT.md
+Last session: 2026-04-15T17:52:41.515Z
+Stopped at: Completed 07-01-PLAN.md
+Resume file: None

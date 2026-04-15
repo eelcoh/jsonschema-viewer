@@ -18,14 +18,14 @@ Requirements for milestone v1.1 Professional Visuals. Each maps to roadmap phase
 
 ### Node Design
 
-- [ ] **NODE-01**: User can distinguish required properties from optional ones via a clear visual marker (asterisk or badge), not just font weight
-- [ ] **NODE-02**: User can see string format annotations (email, date-time, uri, etc.) displayed as a badge on string nodes
+- [x] **NODE-01**: User can distinguish required properties from optional ones via a clear visual marker (asterisk or badge), not just font weight
+- [x] **NODE-02**: User can see string format annotations (email, date-time, uri, etc.) displayed as a badge on string nodes
 
 ### Information Density
 
 - [ ] **INFO-01**: User can see schema descriptions displayed as secondary text on nodes that have a `description` field
 - [ ] **INFO-02**: User can see constraints (min/max length, min/max value, pattern) displayed as compact notation on nodes
-- [ ] **INFO-03**: User can see enum values displayed on nodes that define allowed values
+- [x] **INFO-03**: User can see enum values displayed on nodes that define allowed values
 
 ## Future Requirements
 
@@ -57,11 +57,11 @@ Requirements for milestone v1.1 Professional Visuals. Each maps to roadmap phase
 | DEC-01 | Phase 5 | Pending |
 | DEC-02 | Phase 5 | Pending |
 | VIS-01 | Phase 6 | Pending |
-| NODE-01 | Phase 7 | Pending |
-| NODE-02 | Phase 7 | Pending |
+| NODE-01 | Phase 7 | Complete |
+| NODE-02 | Phase 7 | Complete |
 | INFO-01 | Phase 7 | Pending |
 | INFO-02 | Phase 7 | Pending |
-| INFO-03 | Phase 7 | Pending |
+| INFO-03 | Phase 7 | Complete |
 
 **Coverage:**
 - v1.1 requirements: 8 total
