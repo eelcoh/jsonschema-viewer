@@ -23,8 +23,8 @@ Requirements for milestone v1.1 Professional Visuals. Each maps to roadmap phase
 
 ### Information Density
 
-- [ ] **INFO-01**: User can see schema descriptions displayed as secondary text on nodes that have a `description` field
-- [ ] **INFO-02**: User can see constraints (min/max length, min/max value, pattern) displayed as compact notation on nodes
+- [x] **INFO-01**: User can see schema descriptions displayed as secondary text on nodes that have a `description` field
+- [x] **INFO-02**: User can see constraints (min/max length, min/max value, pattern) displayed as compact notation on nodes
 - [x] **INFO-03**: User can see enum values displayed on nodes that define allowed values
 
 ## Future Requirements
@@ -59,8 +59,8 @@ Requirements for milestone v1.1 Professional Visuals. Each maps to roadmap phase
 | VIS-01 | Phase 6 | Complete |
 | NODE-01 | Phase 7 | Complete |
 | NODE-02 | Phase 7 | Complete |
-| INFO-01 | Phase 7 | Pending |
-| INFO-02 | Phase 7 | Pending |
+| INFO-01 | Phase 7 | Complete |
+| INFO-02 | Phase 7 | Complete |
 | INFO-03 | Phase 7 | Complete |
 
 **Coverage:**

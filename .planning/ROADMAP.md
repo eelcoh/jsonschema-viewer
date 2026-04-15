@@ -25,7 +25,7 @@ Full details: `.planning/milestones/v1.0-ROADMAP.md`
 
 - [ ] **Phase 5: Decoder Fixes** - Correct $defs resolution and combined type+combinator rendering
 - [x] **Phase 6: Blueprint Foundation** - Dark navy background with Theme module and color-safe contrast (completed 2026-04-12)
-- [ ] **Phase 7: Node Design and Information Density** - Visual property markers, format badges, inline descriptions, constraints, and enum values
+- [x] **Phase 7: Node Design and Information Density** - Visual property markers, format badges, inline descriptions, constraints, and enum values (completed 2026-04-15)
 
 ## Phase Details
 
@@ -64,11 +64,11 @@ Plans:
   3. User can read a node's description as secondary text when the schema has a `description` field
   4. User can see numeric and length constraints (min/max value, min/max length, pattern) displayed in compact notation on nodes that declare them
   5. User can see enum values displayed on nodes that define an `enum` field
-**Plans:** 1/2 plans executed
+**Plans:** 2/2 plans complete
 **UI hint**: yes
 Plans:
 - [x] 07-01-PLAN.md — Theme constants, Icon type extension, iconForSchema dispatch, required border, unit tests
-- [ ] 07-02-PLAN.md — Hover state wiring, overlay rendering, metadata extraction, visual verification
+- [x] 07-02-PLAN.md — Hover state wiring, overlay rendering, metadata extraction, visual verification
 
 ## Progress
 
@@ -80,4 +80,4 @@ Plans:
 | 4. Visual Polish | v1.0 | 1/1 | Complete | 2026-04-06 |
 | 5. Decoder Fixes | v1.1 | 0/2 | In progress | - |
 | 6. Blueprint Foundation | v1.1 | 1/1 | Complete   | 2026-04-12 |
-| 7. Node Design and Information Density | v1.1 | 1/2 | In Progress|  |
+| 7. Node Design and Information Density | v1.1 | 2/2 | Complete   | 2026-04-15 |
