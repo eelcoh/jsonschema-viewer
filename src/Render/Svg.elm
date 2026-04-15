@@ -1,4 +1,4 @@
-module Render.Svg exposing (view, viewBoxString, extractRefName, isCircularRef, refLabel, fontWeightForRequired, toggleInSet, connectorPathD)
+module Render.Svg exposing (view, viewBoxString, extractRefName, isCircularRef, refLabel, fontWeightForRequired, toggleInSet, connectorPathD, iconForSchema, borderColorForRequired, Icon(..))
 
 import Dict
 import Html exposing (text)
@@ -36,7 +36,7 @@ view : (String -> msg) -> Set String -> Definitions -> Schema -> Html.Html msg
 view toggleMsg collapsedNodes defs schema =
     let
         ( schemaView, ( w, h ) ) =
-            viewSchema Set.empty defs collapsedNodes toggleMsg "root" ( 0, 0 ) Nothing "700" schema
+            viewSchema Set.empty defs collapsedNodes toggleMsg "root" ( 0, 0 ) Nothing "700" False schema
 
         vb =
             viewBoxString w h 20
@@ -261,16 +261,16 @@ type alias Name =
 
 viewAnonymousSchema : Set String -> Definitions -> Set String -> (String -> msg) -> String -> Coordinates -> Schema -> ( Svg msg, Dimensions )
 viewAnonymousSchema visited defs collapsedNodes toggleMsg path coords schema =
-    viewSchema visited defs collapsedNodes toggleMsg path coords Nothing "700" schema
+    viewSchema visited defs collapsedNodes toggleMsg path coords Nothing "700" False schema
 
 
-viewSchema : Set String -> Definitions -> Set String -> (String -> msg) -> String -> Coordinates -> Maybe Name -> String -> Schema -> ( Svg msg, Dimensions )
-viewSchema visited defs collapsedNodes toggleMsg path (( x, y ) as coords) name weight schema =
+viewSchema : Set String -> Definitions -> Set String -> (String -> msg) -> String -> Coordinates -> Maybe Name -> String -> Bool -> Schema -> ( Svg msg, Dimensions )
+viewSchema visited defs collapsedNodes toggleMsg path (( x, y ) as coords) name weight isRequired schema =
     case schema of
         Schema.Object { title, properties, combinator } ->
             let
                 ( objectGraph, ( w, h ) ) =
-                    iconRect IObject name weight coords
+                    iconRect IObject name weight isRequired coords
                         |> clickableGroup (toggleMsg path)
             in
             if Set.member path collapsedNodes then
@@ -316,7 +316,7 @@ viewSchema visited defs collapsedNodes toggleMsg path (( x, y ) as coords) name 
         Schema.Array { title, items, combinator } ->
             let
                 ( arrayGraph, ( w, h ) ) =
-                    iconRect IList name weight coords
+                    iconRect IList name weight isRequired coords
                         |> clickableGroup (toggleMsg path)
             in
             if Set.member path collapsedNodes then
@@ -330,7 +330,7 @@ viewSchema visited defs collapsedNodes toggleMsg path (( x, y ) as coords) name 
                                 roundRect "*" ( w + 10, y )
 
                             Just items_ ->
-                                viewSchema visited defs collapsedNodes toggleMsg (path ++ ".items") ( w + 10, y ) Nothing "700" items_
+                                viewSchema visited defs collapsedNodes toggleMsg (path ++ ".items") ( w + 10, y ) Nothing "700" False items_
 
                     itemConnector =
                         connectorPath ( w, y + 14 ) ( w + 10, y + 14 )
@@ -363,25 +363,25 @@ viewSchema visited defs collapsedNodes toggleMsg path (( x, y ) as coords) name 
                 ( allGraphs, finalDims )
                     |> toSvgCoordsTuple
 
-        Schema.String { title, combinator } ->
-            viewString weight coords name
-                |> withCombinator visited defs collapsedNodes toggleMsg path y combinator
+        Schema.String stringSchema ->
+            iconRect (iconForSchema schema) name weight isRequired coords
+                |> withCombinator visited defs collapsedNodes toggleMsg path y stringSchema.combinator
 
-        Schema.Integer { title, combinator } ->
-            viewInteger weight coords name
-                |> withCombinator visited defs collapsedNodes toggleMsg path y combinator
+        Schema.Integer intSchema ->
+            iconRect (iconForSchema schema) name weight isRequired coords
+                |> withCombinator visited defs collapsedNodes toggleMsg path y intSchema.combinator
 
-        Schema.Number { title, combinator } ->
-            viewFloat weight coords name
-                |> withCombinator visited defs collapsedNodes toggleMsg path y combinator
+        Schema.Number numSchema ->
+            iconRect (iconForSchema schema) name weight isRequired coords
+                |> withCombinator visited defs collapsedNodes toggleMsg path y numSchema.combinator
 
-        Schema.Boolean { title, combinator } ->
-            viewBool weight coords name
-                |> withCombinator visited defs collapsedNodes toggleMsg path y combinator
+        Schema.Boolean boolSchema ->
+            iconRect (iconForSchema schema) name weight isRequired coords
+                |> withCombinator visited defs collapsedNodes toggleMsg path y boolSchema.combinator
 
-        Schema.Null { title, combinator } ->
+        Schema.Null nullSchema ->
             viewMaybeTitle coords "Null" name
-                |> withCombinator visited defs collapsedNodes toggleMsg path y combinator
+                |> withCombinator visited defs collapsedNodes toggleMsg path y nullSchema.combinator
 
         Schema.Ref { title, ref } ->
             let
@@ -393,22 +393,22 @@ viewSchema visited defs collapsedNodes toggleMsg path (( x, y ) as coords) name 
             in
             if isCycle then
                 -- Cycle pill: not clickable (D-05)
-                iconRect (IRef "*") (Just (refLabel defName True)) weight ( x, y )
+                iconRect (IRef "*") (Just (refLabel defName True)) weight isRequired ( x, y )
 
             else if Set.member path collapsedNodes then
                 -- Collapsed ref: show label pill with click handler to expand
-                iconRect (IRef "*") (Just defName) weight ( x, y )
+                iconRect (IRef "*") (Just defName) weight isRequired ( x, y )
                     |> clickableGroup (toggleMsg path)
 
             else
                 case Dict.get ref defs of
                     Nothing ->
                         -- Definition not found: show label pill, not clickable
-                        iconRect (IRef "*") (Just defName) weight ( x, y )
+                        iconRect (IRef "*") (Just defName) weight isRequired ( x, y )
 
                     Just defSchema ->
                         -- Expanded: render definition inline with cycle guard
-                        viewSchema (Set.insert ref visited) defs collapsedNodes toggleMsg path ( x, y ) (Just defName) weight defSchema
+                        viewSchema (Set.insert ref visited) defs collapsedNodes toggleMsg path ( x, y ) (Just defName) weight isRequired defSchema
                             |> clickableGroup (toggleMsg path)
 
         Schema.OneOf { title, subSchemas } ->
@@ -478,24 +478,6 @@ viewMaybeTitle coords s mTitle =
 --     iconRect IFile name coords
 
 
-viewBool : String -> Coordinates -> Maybe String -> ( Svg msg, Dimensions )
-viewBool weight coords name =
-    iconRect IBool name weight coords
-
-
-viewFloat : String -> Coordinates -> Maybe String -> ( Svg msg, Dimensions )
-viewFloat weight coords name =
-    iconRect IFloat name weight coords
-
-
-viewInteger : String -> Coordinates -> Maybe String -> ( Svg msg, Dimensions )
-viewInteger weight coords name =
-    iconRect IInt name weight coords
-
-
-viewString : String -> Coordinates -> Maybe String -> ( Svg msg, Dimensions )
-viewString weight coords name =
-    iconRect IStr name weight coords
 
 
 
@@ -537,7 +519,7 @@ viewProperty visited defs collapsedNodes toggleMsg path coords objectProperty =
             path ++ ".properties." ++ name
 
         ( schemaGraph, newCoords ) =
-            viewSchema visited defs collapsedNodes toggleMsg childPath coords (Just name) weight property
+            viewSchema visited defs collapsedNodes toggleMsg childPath coords (Just name) weight isRequired property
     in
     ( Svg.g [] [ schemaGraph ], newCoords )
 
@@ -546,7 +528,7 @@ viewArrayItem : Set String -> Definitions -> Set String -> (String -> msg) -> St
 viewArrayItem visited defs collapsedNodes toggleMsg path coords schema =
     let
         ( schemaGraph, newCoords ) =
-            viewSchema visited defs collapsedNodes toggleMsg path coords Nothing "700" schema
+            viewSchema visited defs collapsedNodes toggleMsg path coords Nothing "700" False schema
     in
     ( Svg.g [] [ schemaGraph ], newCoords )
 
@@ -640,10 +622,110 @@ type Icon
     | IBool
     | INull
     | IRef String
+    | IEmail
+    | IDateTime
+    | IHostname
+    | IIpv4
+    | IIpv6
+    | IUri
+    | ICustom String
+    | IEnum
 
 
-iconRect : Icon -> Maybe String -> String -> Coordinates -> ( Svg msg, Dimensions )
-iconRect icon txt weight ( x, y ) =
+iconForSchema : Schema -> Icon
+iconForSchema schema =
+    case schema of
+        Schema.String { format, enum } ->
+            case enum of
+                Just _ ->
+                    IEnum
+
+                Nothing ->
+                    case format of
+                        Just Schema.Email ->
+                            IEmail
+
+                        Just Schema.DateTime ->
+                            IDateTime
+
+                        Just Schema.Hostname ->
+                            IHostname
+
+                        Just Schema.Ipv4 ->
+                            IIpv4
+
+                        Just Schema.Ipv6 ->
+                            IIpv6
+
+                        Just Schema.Uri ->
+                            IUri
+
+                        Just (Schema.Custom s) ->
+                            ICustom s
+
+                        Nothing ->
+                            IStr
+
+        Schema.Integer { enum } ->
+            case enum of
+                Just _ ->
+                    IEnum
+
+                Nothing ->
+                    IInt
+
+        Schema.Number { enum } ->
+            case enum of
+                Just _ ->
+                    IEnum
+
+                Nothing ->
+                    IFloat
+
+        Schema.Boolean { enum } ->
+            case enum of
+                Just _ ->
+                    IEnum
+
+                Nothing ->
+                    IBool
+
+        Schema.Object _ ->
+            IObject
+
+        Schema.Array _ ->
+            IList
+
+        Schema.Null _ ->
+            INull
+
+        Schema.Ref { ref } ->
+            IRef "*"
+
+        Schema.OneOf _ ->
+            IObject
+
+        Schema.AnyOf _ ->
+            IObject
+
+        Schema.AllOf _ ->
+            IObject
+
+        Schema.Fallback _ ->
+            INull
+
+
+borderColorForRequired : Bool -> String
+borderColorForRequired isRequired =
+    if isRequired then
+        Theme.requiredBorder
+
+    else
+        Theme.nodeBorder
+
+
+iconRect : Icon -> Maybe String -> String -> Bool -> Coordinates -> ( Svg msg, Dimensions )
+iconRect icon txt weight isRequired ( x, y ) =
     let
         space =
             10
@@ -673,7 +755,7 @@ iconRect icon txt weight ( x, y ) =
                 |> SvgA.fill
 
         border =
-            Theme.nodeBorder
+            borderColorForRequired isRequired
                 |> SvgA.stroke
 
         dashAttrs =
@@ -821,6 +903,30 @@ iconGraph icon coords =
 
         IRef s ->
             iconGeneric coords s
+
+        IEmail ->
+            iconGeneric coords "@"
+
+        IDateTime ->
+            iconGeneric coords "dt"
+
+        IHostname ->
+            iconGeneric coords "dns"
+
+        IIpv4 ->
+            iconGeneric coords "ip4"
+
+        IIpv6 ->
+            iconGeneric coords "ip6"
+
+        IUri ->
+            iconGeneric coords "url"
+
+        ICustom s ->
+            iconGeneric coords (String.left 3 (String.toLower s))
+
+        IEnum ->
+            iconGeneric coords "Enum"
 
 
 iconGeneric : Coordinates -> String -> ( Svg msg, Dimensions )

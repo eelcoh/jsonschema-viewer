@@ -8,7 +8,11 @@ module Render.Theme exposing
     , nodeBorder
     , nodeFill
     , nodeText
+    , overlayBg
+    , overlayBorder
+    , overlayKeyText
     , refBorder
+    , requiredBorder
     )
 
 
@@ -60,3 +64,23 @@ errorText =
 errorDetailBg : String
 errorDetailBg =
     "#0f1822"
+
+
+requiredBorder : String
+requiredBorder =
+    "#e8a020"
+
+
+overlayBg : String
+overlayBg =
+    "#0f1e30"
+
+
+overlayBorder : String
+overlayBorder =
+    "#3a5a7a"
+
+
+overlayKeyText : String
+overlayKeyText =
+    "#8ab0d0"
