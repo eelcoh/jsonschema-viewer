@@ -1,5 +1,18 @@
 # Milestones
 
+## v1.1 Professional Visuals (Shipped: 2026-04-17)
+
+**Phases completed:** 3 phases, 5 plans, 9 tasks
+
+**Key accomplishments:**
+
+- CombinatorKind type, $defs/definitions merge, $ref normalization, and combinator probing across all typed decoders with 7 round-trip tests
+- Combined schema rendering with combinator pills below properties/items, plus TypeBox example exercising $defs and type+oneOf patterns
+- New Theme constants
+- `NodeMeta` type alias
+
+---
+
 ## v1.0 Interactive JSON Schema Viewer (Shipped: 2026-04-06)
 
 **Phases completed:** 4 phases, 7 plans, 3 tasks
