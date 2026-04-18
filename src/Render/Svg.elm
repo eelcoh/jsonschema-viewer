@@ -1,4 +1,4 @@
-module Render.Svg exposing (view, viewBoxString, extractRefName, isCircularRef, refLabel, fontWeightForRequired, toggleInSet, connectorPathD, iconForSchema, borderColorForRequired, Icon(..), HoverState, NodeMeta)
+module Render.Svg exposing (view, viewBoxString, extractRefName, isCircularRef, refLabel, fontWeightForRequired, toggleInSet, connectorPathD, iconForSchema, Icon(..), HoverState, NodeMeta)
 
 import Dict
 import Html exposing (text)
@@ -47,12 +47,39 @@ type alias ViewConfig msg =
     }
 
 
+ySpace : Float
 ySpace =
-    10
+    8
 
 
+pillHeight : Float
 pillHeight =
-    28
+    22
+
+
+halfPill : Float
+halfPill =
+    11
+
+
+iconSize : Float
+iconSize =
+    14
+
+
+hSpace : Float
+hSpace =
+    8
+
+
+fontSize : Float
+fontSize =
+    11
+
+
+textCharPx : Float
+textCharPx =
+    6.6
 
 
 view : (String -> msg) -> (HoverState -> msg) -> msg -> Set String -> Definitions -> Schema -> Html.Html msg
@@ -67,46 +94,25 @@ view toggleMsg hoverMsg unhoverMsg collapsedNodes defs schema =
         ( schemaView, ( w, h ) ) =
             viewSchema Set.empty defs collapsedNodes config "root" ( 0, 0 ) Nothing "700" False schema
 
+        padding =
+            20
+
+        svgW =
+            w + padding
+
+        svgH =
+            h + padding
+
         vb =
-            viewBoxString w h 20
+            viewBoxString w h padding
     in
     Svg.svg
-        [ SvgA.width "100%"
-        , SvgA.height "100%"
+        [ SvgA.width (String.fromFloat svgW)
+        , SvgA.height (String.fromFloat svgH)
         , SvgA.viewBox vb
+        , SvgA.style "display: block;"
         ]
-        [ Svg.defs []
-            [ Svg.pattern
-                [ SvgA.id "dot-grid"
-                , SvgA.x "0"
-                , SvgA.y "0"
-                , SvgA.width "20"
-                , SvgA.height "20"
-                , SvgA.patternUnits "userSpaceOnUse"
-                ]
-                [ Svg.circle
-                    [ SvgA.cx "10"
-                    , SvgA.cy "10"
-                    , SvgA.r "0.5"
-                    , SvgA.fill Theme.gridDot
-                    ]
-                    []
-                ]
-            ]
-        , Svg.rect
-            [ SvgA.width "100%"
-            , SvgA.height "100%"
-            , SvgA.fill Theme.background
-            ]
-            []
-        , Svg.rect
-            [ SvgA.width "100%"
-            , SvgA.height "100%"
-            , SvgA.fill "url(#dot-grid)"
-            ]
-            []
-        , schemaView
-        ]
+        [ schemaView ]
 
 
 clickableGroup : msg -> ( Svg.Svg msg, Dimensions ) -> ( Svg.Svg msg, Dimensions )
@@ -149,11 +155,11 @@ viewProperties visited defs collapsedNodes config path parentRightX parentY coor
 
                         connector =
                             connectorPath
-                                ( parentRightX, parentY + 14 )
-                                ( x, y + 14 )
+                                ( parentRightX, parentY + halfPill )
+                                ( x, y + halfPill )
 
                         ( gs, ( w2, h2 ), w3 ) =
-                            viewProps ( x, h1 + 10 ) elements
+                            viewProps ( x, h1 + ySpace ) elements
 
                         maxW =
                             List.foldl Basics.max w1 [ w1, w2, w3 ]
@@ -194,11 +200,11 @@ viewItems visited defs collapsedNodes config path parentRightX parentY coords it
 
                         connector =
                             connectorPath
-                                ( parentRightX, parentY + 14 )
-                                ( x, y + 14 )
+                                ( parentRightX, parentY + halfPill )
+                                ( x, y + halfPill )
 
                         ( gs, ( w2, h2 ), w3 ) =
-                            viewItems_ (idx + 1) ( x, h1 + 10 ) elements
+                            viewItems_ (idx + 1) ( x, h1 + ySpace ) elements
 
                         maxW =
                             List.foldl Basics.max w1 [ w1, w2, w3 ]
@@ -213,17 +219,17 @@ toSvgCoordsTuple ( a, b ) =
     ( Svg.g [] a, b )
 
 
-combinatorIcon : Schema.CombinatorKind -> String
+combinatorIcon : Schema.CombinatorKind -> Icon
 combinatorIcon kind =
     case kind of
         Schema.OneOfKind ->
-            "|1|"
+            IOneOf
 
         Schema.AnyOfKind ->
-            "|o|"
+            IAnyOf
 
         Schema.AllOfKind ->
-            "(&)"
+            IAllOf
 
 
 withCombinator : Set String -> Definitions -> Set String -> ViewConfig msg -> String -> Float -> Maybe ( Schema.CombinatorKind, List Schema ) -> ( Svg msg, Dimensions ) -> ( Svg msg, Dimensions )
@@ -238,10 +244,10 @@ withCombinator visited defs collapsedNodes config path parentY maybeCombinator (
                     path ++ ".combinator"
 
                 ( combGraph, ( cw, ch ) ) =
-                    viewMulti visited defs collapsedNodes config combPath ( bw + 10, parentY ) (combinatorIcon kind) Nothing subSchemas
+                    viewMulti visited defs collapsedNodes config combPath ( bw + hSpace, parentY ) (combinatorIcon kind) Nothing subSchemas
 
                 combConnector =
-                    connectorPath ( bw, parentY + 14 ) ( bw + 10, parentY + 14 )
+                    connectorPath ( bw, parentY + halfPill ) ( bw + hSpace, parentY + halfPill )
 
                 finalGraph =
                     Svg.g [] [ baseGraph, combConnector, combGraph ]
@@ -310,7 +316,7 @@ viewSchema visited defs collapsedNodes config path (( x, y ) as coords) name wei
             else
                 let
                     ( propertiesGraphs, ( pw, ph ) ) =
-                        viewProperties visited defs collapsedNodes config path w y ( w + 10, y ) properties
+                        viewProperties visited defs collapsedNodes config path w y ( w + hSpace, y ) properties
 
                     ( allGraphs, finalDims ) =
                         case combinator of
@@ -332,10 +338,10 @@ viewSchema visited defs collapsedNodes config path (( x, y ) as coords) name wei
                                         path ++ ".combinator"
 
                                     ( combGraph, ( cw, ch ) ) =
-                                        viewMulti visited defs collapsedNodes config combPath ( w + 10, combStartY ) (combinatorIcon kind) Nothing subSchemas
+                                        viewMulti visited defs collapsedNodes config combPath ( w + hSpace, combStartY ) (combinatorIcon kind) Nothing subSchemas
 
                                     combConnector =
-                                        connectorPath ( w, y + 14 ) ( w + 10, combStartY + 14 )
+                                        connectorPath ( w, y + halfPill ) ( w + hSpace, combStartY + halfPill )
                                 in
                                 ( objectGraph :: propertiesGraphs ++ [ combConnector, combGraph ]
                                 , ( Basics.max pw cw, Basics.max (Basics.max h ph) ch )
@@ -362,13 +368,13 @@ viewSchema visited defs collapsedNodes config path (( x, y ) as coords) name wei
                     ( itemsGraph, ( iw, ih ) ) =
                         case items of
                             Nothing ->
-                                roundRect "*" ( w + 10, y )
+                                roundRect "*" ( w + hSpace, y )
 
                             Just items_ ->
-                                viewSchema visited defs collapsedNodes config (path ++ ".items") ( w + 10, y ) Nothing "700" False items_
+                                viewSchema visited defs collapsedNodes config (path ++ ".items") ( w + hSpace, y ) Nothing "700" False items_
 
                     itemConnector =
-                        connectorPath ( w, y + 14 ) ( w + 10, y + 14 )
+                        connectorPath ( w, y + halfPill ) ( w + hSpace, y + halfPill )
 
                     ( allGraphs, finalDims ) =
                         case combinator of
@@ -386,10 +392,10 @@ viewSchema visited defs collapsedNodes config path (( x, y ) as coords) name wei
                                         path ++ ".combinator"
 
                                     ( combGraph, ( cw, ch ) ) =
-                                        viewMulti visited defs collapsedNodes config combPath ( w + 10, combStartY ) (combinatorIcon kind) Nothing subSchemas
+                                        viewMulti visited defs collapsedNodes config combPath ( w + hSpace, combStartY ) (combinatorIcon kind) Nothing subSchemas
 
                                     combConnector =
-                                        connectorPath ( w, y + 14 ) ( w + 10, combStartY + 14 )
+                                        connectorPath ( w, y + halfPill ) ( w + hSpace, combStartY + halfPill )
                                 in
                                 ( [ arrayGraph, itemConnector, itemsGraph, combConnector, combGraph ]
                                 , ( Basics.max iw cw, Basics.max (Basics.max h ih) ch )
@@ -448,18 +454,18 @@ viewSchema visited defs collapsedNodes config path (( x, y ) as coords) name wei
             in
             if isCycle then
                 -- Cycle pill: not clickable (D-05)
-                iconRect (IRef "*") (Just (refLabel defName True)) weight isRequired ( x, y )
+                iconRect (IRef "↺") (Just defName) weight isRequired ( x, y )
 
             else if Set.member path collapsedNodes then
                 -- Collapsed ref: show label pill with click handler to expand
-                iconRect (IRef "*") (Just defName) weight isRequired ( x, y )
+                iconRect (IRef "↗") (Just defName) weight isRequired ( x, y )
                     |> clickableGroup (config.toggleMsg path)
 
             else
                 case Dict.get ref defs of
                     Nothing ->
                         -- Definition not found: show label pill, not clickable
-                        iconRect (IRef "*") (Just defName) weight isRequired ( x, y )
+                        iconRect (IRef "↗") (Just defName) weight isRequired ( x, y )
 
                     Just defSchema ->
                         -- Expanded: render definition inline with cycle guard
@@ -467,23 +473,23 @@ viewSchema visited defs collapsedNodes config path (( x, y ) as coords) name wei
                             |> clickableGroup (config.toggleMsg path)
 
         Schema.OneOf { title, subSchemas } ->
-            viewMulti visited defs collapsedNodes config path ( x, y ) "|1|" name subSchemas
+            viewMulti visited defs collapsedNodes config path ( x, y ) IOneOf name subSchemas
 
         Schema.AnyOf { title, subSchemas } ->
-            viewMulti visited defs collapsedNodes config path ( x, y ) "|o|" name subSchemas
+            viewMulti visited defs collapsedNodes config path ( x, y ) IAnyOf name subSchemas
 
         Schema.AllOf { title, subSchemas } ->
-            viewMulti visited defs collapsedNodes config path ( x, y ) "(&)" name subSchemas
+            viewMulti visited defs collapsedNodes config path ( x, y ) IAllOf name subSchemas
 
         Schema.Fallback _ ->
             ( Svg.g [] [], coords )
 
 
-viewMulti : Set String -> Definitions -> Set String -> ViewConfig msg -> String -> Coordinates -> String -> Maybe Name -> List Schema -> ( Svg msg, Dimensions )
-viewMulti visited defs collapsedNodes config path ( x, y ) icon _ schemas =
+viewMulti : Set String -> Definitions -> Set String -> ViewConfig msg -> String -> Coordinates -> Icon -> Maybe Name -> List Schema -> ( Svg msg, Dimensions )
+viewMulti visited defs collapsedNodes config path ( x, y ) icon name schemas =
     let
         ( choiceGraph, ( w, h ) ) =
-            roundRect icon ( x, y )
+            iconRect icon name "500" False ( x, y )
                 |> clickableGroup (config.toggleMsg path)
     in
     if Set.member path collapsedNodes then
@@ -492,7 +498,7 @@ viewMulti visited defs collapsedNodes config path ( x, y ) icon _ schemas =
     else
         let
             ( subSchemaGraphs, newCoords ) =
-                viewItems visited defs collapsedNodes config path w y ( w + 10, y ) schemas
+                viewItems visited defs collapsedNodes config path w y ( w + hSpace, y ) schemas
 
             allOfGraph =
                 choiceGraph :: subSchemaGraphs
@@ -549,13 +555,6 @@ viewArrayItem visited defs collapsedNodes config path coords schema =
 roundRect : String -> Coordinates -> ( Svg msg, Dimensions )
 roundRect txt ( x, y ) =
     let
-        l =
-            String.length txt
-                |> Basics.toFloat
-
-        charWidth =
-            7.2
-
         textWidth =
             computeTextWidth txt
 
@@ -564,29 +563,18 @@ roundRect txt ( x, y ) =
                 |> String.fromFloat
 
         rectWidth =
-            textWidth + 30
+            textWidth + (hSpace * 2) + 8
 
         wRect =
             String.fromFloat rectWidth
-
-        wText =
-            String.fromFloat textWidth
 
         tt =
             computeVerticalText y
                 |> String.fromFloat
 
-        bg =
-            Theme.nodeFill
-                |> SvgA.fill
-
         fg =
-            Theme.nodeText
+            Theme.iconText
                 |> SvgA.fill
-
-        border =
-            Theme.nodeBorder
-                |> SvgA.stroke
 
         caption c =
             let
@@ -594,8 +582,9 @@ roundRect txt ( x, y ) =
                     [ SvgA.x mt
                     , SvgA.y tt
                     , fg
-                    , SvgA.fontFamily "Monospace"
-                    , SvgA.fontSize "12"
+                    , SvgA.fontFamily "'DM Mono', ui-monospace, monospace"
+                    , SvgA.fontSize (String.fromFloat fontSize)
+                    , SvgA.fontWeight "500"
                     , SvgA.dominantBaseline "middle"
                     , SvgA.cursor "pointer"
                     ]
@@ -609,12 +598,12 @@ roundRect txt ( x, y ) =
                 [ SvgA.x (String.fromFloat x)
                 , SvgA.y (String.fromFloat y)
                 , SvgA.width wRect
-                , SvgA.height "28"
-                , bg
-                , border
+                , SvgA.height (String.fromFloat pillHeight)
+                , SvgA.fill Theme.iconChipBg
+                , SvgA.stroke Theme.nodeBorder
                 , SvgA.strokeWidth "1"
-                , SvgA.rx "2"
-                , SvgA.ry "2"
+                , SvgA.rx "3"
+                , SvgA.ry "3"
                 ]
                 []
 
@@ -622,7 +611,7 @@ roundRect txt ( x, y ) =
             Svg.g [ SvgA.textAnchor "middle" ]
                 [ rct, caption txt ]
     in
-    ( el, ( rectWidth + x, 28 + y ) )
+    ( el, ( rectWidth + x, pillHeight + y ) )
 
 
 type Icon
@@ -643,6 +632,9 @@ type Icon
     | IUri
     | ICustom String
     | IEnum
+    | IOneOf
+    | IAnyOf
+    | IAllOf
 
 
 iconForSchema : Schema -> Icon
@@ -716,90 +708,106 @@ iconForSchema schema =
             IRef "*"
 
         Schema.OneOf _ ->
-            IObject
+            IOneOf
 
         Schema.AnyOf _ ->
-            IObject
+            IAnyOf
 
         Schema.AllOf _ ->
-            IObject
+            IAllOf
 
         Schema.Fallback _ ->
             INull
 
 
-borderColorForRequired : Bool -> String
-borderColorForRequired isRequired =
-    if isRequired then
-        Theme.requiredBorder
-
-    else
-        Theme.nodeBorder
-
-
 iconRect : Icon -> Maybe String -> String -> Bool -> Coordinates -> ( Svg msg, Dimensions )
 iconRect icon txt weight isRequired ( x, y ) =
     let
-        space =
-            10
-
         ( iconG, ( iconW, _ ) ) =
-            iconGraph icon ( x + space, y )
+            iconGraph icon ( x + hSpace, y )
 
         ( separatorG, ( separatorW, _ ) ) =
-            separatorGraph ( iconW + space, y )
+            separatorGraph ( iconW + hSpace, y )
 
         mNameG =
-            Maybe.map (viewNameGraph weight ( separatorW + space, y )) txt
+            Maybe.map (viewNameGraph weight ( separatorW + hSpace, y )) txt
 
-        ( graphs, rectWidth ) =
+        ( graphs, rectWidth, iconChamberWidth ) =
             case mNameG of
                 Nothing ->
-                    ( [ iconG ], iconW - x + space )
+                    let
+                        w =
+                            iconW - x + hSpace
+                    in
+                    ( [ iconG ], w, w )
 
                 Just ( nameG, ( nameW, _ ) ) ->
-                    ( [ iconG, separatorG, nameG ], nameW - x + space )
+                    ( [ iconG, separatorG, nameG ]
+                    , nameW - x + hSpace
+                    , iconW + hSpace - x
+                    )
 
         wRect =
             String.fromFloat rectWidth
 
-        bg =
-            Theme.nodeFill
-                |> SvgA.fill
-
-        border =
-            borderColorForRequired isRequired
-                |> SvgA.stroke
-
         dashAttrs =
             case icon of
                 IRef _ ->
-                    [ SvgA.strokeDasharray "5 3" ]
+                    [ SvgA.strokeDasharray "4 2" ]
 
                 _ ->
                     []
 
-        rct =
+        outerRect =
             Svg.rect
                 ([ SvgA.x (String.fromFloat x)
                  , SvgA.y (String.fromFloat y)
                  , SvgA.width wRect
-                 , SvgA.height "28"
-                 , bg
-                 , border
+                 , SvgA.height (String.fromFloat pillHeight)
+                 , SvgA.fill Theme.nodeFill
+                 , SvgA.stroke Theme.nodeBorder
                  , SvgA.strokeWidth "1"
-                 , SvgA.rx "2"
-                 , SvgA.ry "2"
+                 , SvgA.rx "3"
+                 , SvgA.ry "3"
                  ]
                     ++ dashAttrs
                 )
                 []
 
+        iconChamberRect =
+            Svg.rect
+                [ SvgA.x (String.fromFloat x)
+                , SvgA.y (String.fromFloat y)
+                , SvgA.width (String.fromFloat iconChamberWidth)
+                , SvgA.height (String.fromFloat pillHeight)
+                , SvgA.fill Theme.iconChipBg
+                , SvgA.rx "3"
+                , SvgA.ry "3"
+                ]
+                []
+
+        requiredStripEls =
+            if isRequired then
+                [ Svg.rect
+                    [ SvgA.x (String.fromFloat (x + 1))
+                    , SvgA.y (String.fromFloat (y + 1))
+                    , SvgA.width "2"
+                    , SvgA.height (String.fromFloat (pillHeight - 2))
+                    , SvgA.fill Theme.requiredStrip
+                    , SvgA.rx "1"
+                    , SvgA.ry "1"
+                    ]
+                    []
+                ]
+
+            else
+                []
+
         el =
             Svg.g [ SvgA.textAnchor "middle" ]
-                (rct :: graphs)
+                (outerRect :: iconChamberRect :: requiredStripEls ++ graphs)
     in
-    ( el, ( rectWidth + x, 28 + y ) )
+    ( el, ( rectWidth + x, pillHeight + y ) )
 
 
 viewNameGraph : String -> Coordinates -> String -> ( Svg msg, Dimensions )
@@ -824,8 +832,8 @@ viewNameGraph weight ( x, y ) name =
                     [ SvgA.x (String.fromFloat mt)
                     , SvgA.y (String.fromFloat tt)
                     , fg
-                    , SvgA.fontFamily "Monospace"
-                    , SvgA.fontSize "12"
+                    , SvgA.fontFamily "'DM Mono', ui-monospace, monospace"
+                    , SvgA.fontSize (String.fromFloat fontSize)
                     , SvgA.fontWeight weight
                     , SvgA.dominantBaseline "middle"
                     , SvgA.cursor "pointer"
@@ -839,7 +847,7 @@ viewNameGraph weight ( x, y ) name =
             caption name
 
         dims =
-            ( x + fullWidth, y + 28 )
+            ( x + fullWidth, y + pillHeight )
     in
     ( graph, dims )
 
@@ -854,24 +862,24 @@ separatorGraph ( x, y ) =
             x1
 
         y1 =
-            (y + 5)
+            (y + 4)
                 |> String.fromFloat
 
         y2 =
-            (y + 28 - 5)
+            (y + pillHeight - 4)
                 |> String.fromFloat
 
         strokeColor =
-            Theme.nodeBorder
+            Theme.nodeBorderSubtle
                 |> SvgA.stroke
 
         strokeWidth =
-            1.2
+            1
 
         attrs =
             [ SvgA.strokeWidth (String.fromFloat strokeWidth)
             , strokeColor
-            , SvgA.strokeLinecap "Round"
+            , SvgA.strokeLinecap "round"
             , SvgA.x1 x1
             , SvgA.y1 y1
             , SvgA.x2 x2
@@ -882,116 +890,243 @@ separatorGraph ( x, y ) =
             Svg.line attrs []
 
         dims =
-            ( x + strokeWidth, y + 28 )
+            ( x + strokeWidth, y + pillHeight )
     in
     ( separator, dims )
 
 
 iconGraph : Icon -> Coordinates -> ( Svg msg, Dimensions )
-iconGraph icon coords =
-    case icon of
-        IList ->
-            iconGeneric coords "[..]"
-
-        IObject ->
-            iconGeneric coords "{..}"
-
-        IInt ->
-            viewNameGraph "700" coords "I"
-
-        IStr ->
-            iconGeneric coords "S"
-
-        IFile ->
-            iconGeneric coords "File"
-
-        INull ->
-            iconGeneric coords "Null"
-
-        IBool ->
-            iconGeneric coords "B"
-
-        IFloat ->
-            iconGeneric coords "F"
-
-        IRef s ->
-            iconGeneric coords s
-
-        IEmail ->
-            iconGeneric coords "@"
-
-        IDateTime ->
-            iconGeneric coords "dt"
-
-        IHostname ->
-            iconGeneric coords "dns"
-
-        IIpv4 ->
-            iconGeneric coords "ip4"
-
-        IIpv6 ->
-            iconGeneric coords "ip6"
-
-        IUri ->
-            iconGeneric coords "url"
-
-        ICustom s ->
-            iconGeneric coords (String.left 3 (String.toLower s))
-
-        IEnum ->
-            iconGeneric coords "Enum"
-
-
-iconGeneric : Coordinates -> String -> ( Svg msg, Dimensions )
-iconGeneric ( x, y ) iconStr =
+iconGraph icon ( x, y ) =
     let
-        strWidth =
-            computeTextWidth iconStr
+        offsetY =
+            y + ((pillHeight - iconSize) / 2)
 
-        strHeight =
-            computeTextHeight iconStr
+        translate =
+            "translate("
+                ++ String.fromFloat x
+                ++ " "
+                ++ String.fromFloat offsetY
+                ++ ")"
 
-        mt =
-            computeHorizontalText x iconStr
-
-        tt =
-            computeVerticalText y
-
-        fg =
-            Theme.nodeText
-                |> SvgA.fill
-
-        attrs =
-            [ SvgA.x (String.fromFloat mt)
-            , SvgA.y (String.fromFloat tt)
-            , fg
-            , SvgA.fontFamily "Monospace"
-            , SvgA.fontSize "12"
-            , SvgA.dominantBaseline "middle"
-            , SvgA.cursor "pointer"
-            ]
+        color =
+            Theme.iconText
 
         graph =
-            Svg.text_
-                attrs
-                [ Svg.text iconStr ]
+            Svg.g
+                [ SvgA.transform translate
+                , SvgA.cursor "pointer"
+                ]
+                (iconShapes icon color)
 
         dims =
-            ( x + strWidth, y + strHeight )
+            ( x + iconSize, y + pillHeight )
     in
     ( graph, dims )
 
 
+iconStrokeAttrs : String -> List (Svg.Attribute msg)
+iconStrokeAttrs color =
+    [ SvgA.stroke color
+    , SvgA.fill "none"
+    , SvgA.strokeWidth "1.1"
+    , SvgA.strokeLinecap "round"
+    , SvgA.strokeLinejoin "round"
+    ]
+
+
+iconShapes : Icon -> String -> List (Svg msg)
+iconShapes icon color =
+    case icon of
+        IObject ->
+            [ Svg.path (SvgA.d "M5 2 Q3 2 3 4.5 Q3 6.5 1.5 7 Q3 7.5 3 9.5 Q3 12 5 12" :: iconStrokeAttrs color) []
+            , Svg.path (SvgA.d "M9 2 Q11 2 11 4.5 Q11 6.5 12.5 7 Q11 7.5 11 9.5 Q11 12 9 12" :: iconStrokeAttrs color) []
+            ]
+
+        IList ->
+            [ Svg.path (SvgA.d "M5 2 L2.5 2 L2.5 12 L5 12" :: iconStrokeAttrs color) []
+            , Svg.path (SvgA.d "M9 2 L11.5 2 L11.5 12 L9 12" :: iconStrokeAttrs color) []
+            ]
+
+        IInt ->
+            [ Svg.path (SvgA.d "M5 2 L3.5 12 M10 2 L8.5 12 M2 5.5 L12 5.5 M1.5 9 L11.5 9" :: iconStrokeAttrs color) []
+            ]
+
+        IStr ->
+            [ Svg.path (SvgA.d "M3.5 3.5 L3.5 6 M5.5 3.5 L5.5 6" :: iconStrokeAttrs color) []
+            , Svg.path (SvgA.d "M8.5 3.5 L8.5 6 M10.5 3.5 L10.5 6" :: iconStrokeAttrs color) []
+            , Svg.path (SvgA.d "M3 10.5 L11 10.5" :: iconStrokeAttrs color) []
+            ]
+
+        IFile ->
+            [ Svg.path (SvgA.d "M3 2 L9 2 L11 4 L11 12 L3 12 Z" :: iconStrokeAttrs color) []
+            , Svg.path (SvgA.d "M9 2 L9 4 L11 4" :: iconStrokeAttrs color) []
+            ]
+
+        INull ->
+            [ Svg.circle
+                ([ SvgA.cx "7", SvgA.cy "7", SvgA.r "4.5" ] ++ iconStrokeAttrs color)
+                []
+            , Svg.path (SvgA.d "M3.8 10.2 L10.2 3.8" :: iconStrokeAttrs color) []
+            ]
+
+        IBool ->
+            [ Svg.rect
+                ([ SvgA.x "1.5"
+                 , SvgA.y "4.5"
+                 , SvgA.width "11"
+                 , SvgA.height "5"
+                 , SvgA.rx "2.5"
+                 , SvgA.ry "2.5"
+                 ]
+                    ++ iconStrokeAttrs color
+                )
+                []
+            , Svg.circle [ SvgA.cx "9.5", SvgA.cy "7", SvgA.r "1.4", SvgA.fill color ] []
+            ]
+
+        IFloat ->
+            [ Svg.path (SvgA.d "M5 2 L3.5 10 M9.5 2 L8 10 M2 5 L11 5 M1.5 8 L10.5 8" :: iconStrokeAttrs color) []
+            , Svg.circle [ SvgA.cx "11.2", SvgA.cy "11.2", SvgA.r "0.9", SvgA.fill color ] []
+            ]
+
+        IRef s ->
+            if s == "↺" then
+                -- cycle
+                [ Svg.path (SvgA.d "M11.5 4 A4.5 4.5 0 1 0 12 9.5" :: iconStrokeAttrs color) []
+                , Svg.path (SvgA.d "M8.5 3.5 L11.5 4 L11 7" :: iconStrokeAttrs color) []
+                ]
+
+            else
+                -- collapsed ref / default arrow
+                arrowNEShapes color
+
+        IEmail ->
+            [ Svg.circle
+                ([ SvgA.cx "7", SvgA.cy "7", SvgA.r "5" ] ++ iconStrokeAttrs color)
+                []
+            , Svg.circle
+                ([ SvgA.cx "7", SvgA.cy "7", SvgA.r "1.8" ] ++ iconStrokeAttrs color)
+                []
+            , Svg.path (SvgA.d "M8.8 8.8 Q10 10.2 11.3 9 Q12.5 7.5 11.8 5" :: iconStrokeAttrs color) []
+            ]
+
+        IDateTime ->
+            [ Svg.circle
+                ([ SvgA.cx "7", SvgA.cy "7", SvgA.r "5" ] ++ iconStrokeAttrs color)
+                []
+            , Svg.path (SvgA.d "M7 3.5 L7 7 L9.5 8.5" :: iconStrokeAttrs color) []
+            ]
+
+        IHostname ->
+            [ Svg.circle
+                ([ SvgA.cx "7", SvgA.cy "7", SvgA.r "5" ] ++ iconStrokeAttrs color)
+                []
+            , Svg.path (SvgA.d "M2 7 L12 7" :: iconStrokeAttrs color) []
+            , Svg.path (SvgA.d "M7 2 Q3.5 7 7 12 M7 2 Q10.5 7 7 12" :: iconStrokeAttrs color) []
+            ]
+
+        IIpv4 ->
+            digitIcon color "4"
+
+        IIpv6 ->
+            digitIcon color "6"
+
+        IUri ->
+            arrowNEShapes color
+
+        ICustom s ->
+            customTextIcon color (String.left 3 (String.toLower s))
+
+        IEnum ->
+            [ Svg.circle [ SvgA.cx "2.5", SvgA.cy "4", SvgA.r "0.9", SvgA.fill color ] []
+            , Svg.circle [ SvgA.cx "2.5", SvgA.cy "7", SvgA.r "0.9", SvgA.fill color ] []
+            , Svg.circle [ SvgA.cx "2.5", SvgA.cy "10", SvgA.r "0.9", SvgA.fill color ] []
+            , Svg.path (SvgA.d "M5 4 L12 4 M5 7 L12 7 M5 10 L10 10" :: iconStrokeAttrs color) []
+            ]
+
+        IOneOf ->
+            -- ⊕ (exclusive or): circle with plus inside
+            [ Svg.circle
+                ([ SvgA.cx "7", SvgA.cy "7", SvgA.r "5" ] ++ iconStrokeAttrs color)
+                []
+            , Svg.path (SvgA.d "M7 3.5 L7 10.5 M3.5 7 L10.5 7" :: iconStrokeAttrs color) []
+            ]
+
+        IAnyOf ->
+            -- ∪ (union / cup): at-least-one
+            [ Svg.path (SvgA.d "M3 3 L3 9 A4 4 0 0 0 11 9 L11 3" :: iconStrokeAttrs color) []
+            ]
+
+        IAllOf ->
+            -- ∩ (intersection / cap): all-of
+            [ Svg.path (SvgA.d "M3 11 L3 5 A4 4 0 0 1 11 5 L11 11" :: iconStrokeAttrs color) []
+            ]
+
+
+arrowNEShapes : String -> List (Svg msg)
+arrowNEShapes color =
+    [ Svg.path (SvgA.d "M3.5 10.5 L10.5 3.5" :: iconStrokeAttrs color) []
+    , Svg.path (SvgA.d "M6 3.5 L10.5 3.5 L10.5 8" :: iconStrokeAttrs color) []
+    ]
+
+
+digitIcon : String -> String -> List (Svg msg)
+digitIcon color digit =
+    [ Svg.rect
+        ([ SvgA.x "1.5"
+         , SvgA.y "2.5"
+         , SvgA.width "11"
+         , SvgA.height "9"
+         , SvgA.rx "1.5"
+         , SvgA.ry "1.5"
+         ]
+            ++ iconStrokeAttrs color
+        )
+        []
+    , Svg.text_
+        [ SvgA.x "7"
+        , SvgA.y "7"
+        , SvgA.textAnchor "middle"
+        , SvgA.dominantBaseline "middle"
+        , SvgA.fill color
+        , SvgA.fontFamily "'DM Mono', ui-monospace, monospace"
+        , SvgA.fontSize "7.5"
+        , SvgA.fontWeight "600"
+        ]
+        [ Svg.text digit ]
+    ]
+
+
+customTextIcon : String -> String -> List (Svg msg)
+customTextIcon color txt =
+    [ Svg.text_
+        [ SvgA.x "7"
+        , SvgA.y "7.5"
+        , SvgA.textAnchor "middle"
+        , SvgA.dominantBaseline "middle"
+        , SvgA.fill color
+        , SvgA.fontFamily "'DM Mono', ui-monospace, monospace"
+        , SvgA.fontSize "6.5"
+        , SvgA.fontWeight "500"
+        , SvgA.textLength "12"
+        ]
+        [ Svg.text txt ]
+    ]
+
+
+computeTextWidth : String -> Float
 computeTextWidth txt =
     String.length txt
         |> Basics.toFloat
-        |> (*) 7.2
+        |> (*) textCharPx
 
 
-computeTextHeight txt =
-    28
+computeTextHeight : String -> Float
+computeTextHeight _ =
+    pillHeight
 
 
+computeHorizontalText : Float -> String -> Float
 computeHorizontalText x txt =
     let
         textWidth =
@@ -1000,8 +1135,9 @@ computeHorizontalText x txt =
     x + (textWidth / 2)
 
 
+computeVerticalText : Float -> Float
 computeVerticalText y =
-    y + 15
+    y + halfPill + 0.5
 
 
 connectorPathD : Coordinates -> Coordinates -> String
@@ -1033,7 +1169,8 @@ connectorPath start end =
     Svg.path
         [ SvgA.d (connectorPathD start end)
         , SvgA.stroke Theme.connector
-        , SvgA.strokeWidth "1.5"
+        , SvgA.strokeWidth "1"
+        , SvgA.strokeOpacity "0.65"
         , SvgA.strokeLinecap "round"
         , SvgA.fill "none"
         ]

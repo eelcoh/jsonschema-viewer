@@ -6,6 +6,7 @@ import Html exposing (Html, div, text)
 import Html.Attributes as Attr
 import Html.Events
 import Json.Decode exposing (decodeString)
+import Json.Highlight
 import Json.Schema
 import Json.Schema.Decode
 import Process
@@ -32,6 +33,8 @@ type alias Model =
     , dragHover : Bool
     , collapsedNodes : Set String
     , hoveredNode : Maybe HoverState
+    , editorScrollTop : Float
+    , editorScrollLeft : Float
     }
 
 
@@ -48,6 +51,7 @@ type Msg
     | ToggleNode String
     | HoverNode HoverState
     | UnhoverNode
+    | EditorScrolled Float Float
 
 
 main : Program () Model Msg
@@ -85,6 +89,8 @@ init _ =
       , dragHover = False
       , collapsedNodes = Set.empty
       , hoveredNode = Nothing
+      , editorScrollTop = 0
+      , editorScrollLeft = 0
       }
     , Cmd.none
     )
@@ -154,6 +160,8 @@ update msg model =
                 , displayErrors = True
                 , collapsedNodes = Set.empty
                 , hoveredNode = Nothing
+                , editorScrollTop = 0
+                , editorScrollLeft = 0
               }
             , Cmd.none
             )
@@ -180,9 +188,14 @@ update msg model =
                 , displayErrors = False
                 , collapsedNodes = Set.empty
                 , hoveredNode = Nothing
+                , editorScrollTop = 0
+                , editorScrollLeft = 0
               }
             , Cmd.none
             )
+
+        EditorScrolled top left ->
+            ( { model | editorScrollTop = top, editorScrollLeft = left }, Cmd.none )
 
         TogglePanel ->
             ( { model | panelCollapsed = not model.panelCollapsed }, Cmd.none )
@@ -227,7 +240,19 @@ viewToolbar : Model -> Html Msg
 viewToolbar model =
     div [ Attr.class "toolbar" ]
         [ div [ Attr.class "toolbar-left" ]
-            [ Html.span [ Attr.class "app-title" ] [ text "JSON Schema Viewer" ]
+            [ div [ Attr.class "title-block" ]
+                [ Html.span [ Attr.class "title-kicker" ]
+                    [ text "\u{25C7} Visual Browser"
+                    , Html.span [ Attr.class "tk-dot" ] [ text "\u{00B7}" ]
+                    , text "Ch. 01"
+                    ]
+                , div [ Attr.class "title-row" ]
+                    [ Html.span [ Attr.class "app-title" ]
+                        [ text "JSON Schema Viewer" ]
+                    , Html.span [ Attr.class "title-meta" ]
+                        [ text "Draft-07 / 2020-12" ]
+                    ]
+                ]
             ]
         , viewExampleButtons model.selectedExample
         , viewCollapseToggle model.panelCollapsed
@@ -290,17 +315,144 @@ viewInputPanel model =
                 (Json.Decode.at [ "dataTransfer", "files", "0" ] File.decoder)
             )
         ]
-        [ Html.textarea
-            [ Attr.class "schema-textarea"
-            , Attr.value model.inputText
-            , Html.Events.onInput TextareaChanged
-            , Attr.placeholder "Paste a JSON Schema document here, or drag and drop a .json file."
-            , Attr.attribute "spellcheck" "false"
-            , Attr.attribute "autocorrect" "off"
-            , Attr.attribute "autocapitalize" "off"
+        [ div [ Attr.class "panel-label" ]
+            [ Html.span [ Attr.class "pl-index" ] [ text "01" ]
+            , text "Schema.json — Source"
+            , Html.span [ Attr.class "pl-rule" ] []
             ]
-            []
+        , viewEditor model
         ]
+
+
+viewEditor : Model -> Html Msg
+viewEditor model =
+    let
+        lineCount =
+            countLines model.inputText
+
+        tokens =
+            Json.Highlight.tokenize model.inputText
+
+        translate =
+            "translate("
+                ++ String.fromFloat (negate model.editorScrollLeft)
+                ++ "px, "
+                ++ String.fromFloat (negate model.editorScrollTop)
+                ++ "px)"
+
+        gutterTranslate =
+            "translateY(" ++ String.fromFloat (negate model.editorScrollTop) ++ "px)"
+    in
+    div [ Attr.class "editor" ]
+        [ div [ Attr.class "editor-body" ]
+            [ viewGutter gutterTranslate lineCount
+            , div [ Attr.class "editor-code" ]
+                [ Html.pre
+                    [ Attr.class "syntax-layer"
+                    , Attr.attribute "aria-hidden" "true"
+                    , Attr.style "transform" translate
+                    ]
+                    (Json.Highlight.tokensToHtml tokens
+                        ++ [ Html.span [ Attr.class "tk-eof" ] [ text "\n" ] ]
+                    )
+                , Html.textarea
+                    [ Attr.class "schema-textarea"
+                    , Attr.value model.inputText
+                    , Html.Events.onInput TextareaChanged
+                    , Html.Events.on "scroll" scrollDecoder
+                    , Attr.placeholder "Paste a JSON Schema document here, or drag and drop a .json file."
+                    , Attr.attribute "spellcheck" "false"
+                    , Attr.attribute "autocorrect" "off"
+                    , Attr.attribute "autocapitalize" "off"
+                    ]
+                    []
+                ]
+            ]
+        , viewEditorStatus model lineCount
+        ]
+
+
+viewGutter : String -> Int -> Html msg
+viewGutter translate lineCount =
+    div [ Attr.class "editor-gutter" ]
+        [ div
+            [ Attr.class "editor-gutter-lines"
+            , Attr.style "transform" translate
+            ]
+            (List.map viewGutterLine (List.range 1 lineCount))
+        ]
+
+
+viewGutterLine : Int -> Html msg
+viewGutterLine n =
+    div [ Attr.class "editor-gutter-line" ] [ text (String.fromInt n) ]
+
+
+scrollDecoder : Json.Decode.Decoder Msg
+scrollDecoder =
+    Json.Decode.map2 EditorScrolled
+        (Json.Decode.at [ "target", "scrollTop" ] Json.Decode.float)
+        (Json.Decode.at [ "target", "scrollLeft" ] Json.Decode.float)
+
+
+countLines : String -> Int
+countLines src =
+    1 + (String.toList src |> List.filter (\c -> c == '\n') |> List.length)
+
+
+viewEditorStatus : Model -> Int -> Html Msg
+viewEditorStatus model lineCount =
+    let
+        charCount =
+            String.length model.inputText
+
+        ( statusLabel, statusClass ) =
+            case model.parsedSchema of
+                Ok _ ->
+                    ( "Parsed · OK", "ok" )
+
+                Err _ ->
+                    ( "Invalid JSON", "err" )
+    in
+    div [ Attr.class "editor-status" ]
+        [ Html.span [ Attr.class "es-glyph" ] [ text "\u{25C7}" ]
+        , Html.span [ Attr.class "es-item" ]
+            [ Html.span [ Attr.class "es-k" ] [ text "Ln " ]
+            , Html.span [ Attr.class "es-v" ] [ text (String.fromInt lineCount) ]
+            ]
+        , Html.span [ Attr.class "es-sep" ] [ text "·" ]
+        , Html.span [ Attr.class "es-item" ]
+            [ Html.span [ Attr.class "es-k" ] [ text "Ch " ]
+            , Html.span [ Attr.class "es-v" ] [ text (formatThousands charCount) ]
+            ]
+        , Html.span [ Attr.class "es-sep" ] [ text "·" ]
+        , Html.span [ Attr.class "es-item" ] [ text "JSON Schema" ]
+        , Html.span [ Attr.class "es-spacer" ] []
+        , Html.span [ Attr.class ("es-status " ++ statusClass) ]
+            [ text statusLabel ]
+        ]
+
+
+formatThousands : Int -> String
+formatThousands n =
+    let
+        s =
+            String.fromInt n
+
+        insertCommas chars acc count =
+            case chars of
+                [] ->
+                    acc
+
+                c :: rest ->
+                    if count > 0 && modBy 3 count == 0 then
+                        insertCommas rest (c :: ',' :: acc) (count + 1)
+
+                    else
+                        insertCommas rest (c :: acc) (count + 1)
+    in
+    insertCommas (String.toList s |> List.reverse) [] 0
+        |> String.fromList
 
 
 viewDiagramPanel : Model -> Html Msg
@@ -309,7 +461,12 @@ viewDiagramPanel model =
         [ Attr.class "diagram-panel"
         , Attr.style "position" "relative"
         ]
-        [ case model.parsedSchema of
+        [ div [ Attr.class "panel-label" ]
+            [ Html.span [ Attr.class "pl-index" ] [ text "02" ]
+            , text "Diagram — Structural View"
+            , Html.span [ Attr.class "pl-rule" ] []
+            ]
+        , case model.parsedSchema of
             Ok spec ->
                 Render.view ToggleNode HoverNode UnhoverNode model.collapsedNodes spec.definitions spec.schema
 
@@ -324,6 +481,10 @@ viewDiagramPanel model =
 
                         Nothing ->
                             viewError e
+        , div [ Attr.class "corner tl" ] []
+        , div [ Attr.class "corner tr" ] []
+        , div [ Attr.class "corner bl" ] []
+        , div [ Attr.class "corner br" ] []
         , viewHoverOverlay model.hoveredNode
         ]
 

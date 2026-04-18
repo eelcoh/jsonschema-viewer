@@ -119,6 +119,16 @@ schemaDecoder =
                     |> optional "examples" (list value) []
                     |> custom combinatorDecoder
                     |> withType "null"
+                , succeed Schema.object
+                    |> maybeOptional "title" string
+                    |> maybeOptional "description" string
+                    |> optional "properties" (dict schemaDecoder) Dict.empty
+                    |> optional "required" (list string) []
+                    |> maybeOptional "minProperties" int
+                    |> maybeOptional "maxProperties" int
+                    |> optional "examples" (list value) []
+                    |> custom combinatorDecoder
+                    |> withField "properties"
                 , succeed Schema.reference
                     |> maybeOptional "title" string
                     |> maybeOptional "description" string
@@ -153,6 +163,15 @@ schemaDecoder =
 withType : String -> Decoder a -> Decoder a
 withType typeString decoder_ =
     field "type" (constant typeString string)
+        |> andThen (always decoder_)
+
+
+{-| Ensure a JSON object has a specific field present (any value).
+Used for implicit type inference — e.g. a schema with "properties" is an object.
+-}
+withField : String -> Decoder a -> Decoder a
+withField fieldName decoder_ =
+    field fieldName value
         |> andThen (always decoder_)
 
 

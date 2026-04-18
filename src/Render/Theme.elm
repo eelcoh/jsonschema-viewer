@@ -5,7 +5,10 @@ module Render.Theme exposing
     , errorHeading
     , errorText
     , gridDot
+    , iconChipBg
+    , iconText
     , nodeBorder
+    , nodeBorderSubtle
     , nodeFill
     , nodeText
     , overlayBg
@@ -13,22 +16,28 @@ module Render.Theme exposing
     , overlayKeyText
     , refBorder
     , requiredBorder
+    , requiredStrip
     )
 
 
 background : String
 background =
-    "#1a2332"
+    "#0b1420"
 
 
 gridDot : String
 gridDot =
-    "#2a3a52"
+    "#1b2f47"
 
 
 nodeBorder : String
 nodeBorder =
-    "#a0c4e8"
+    "#5a8fb0"
+
+
+nodeBorderSubtle : String
+nodeBorderSubtle =
+    "#365d7a"
 
 
 nodeFill : String
@@ -38,17 +47,27 @@ nodeFill =
 
 nodeText : String
 nodeText =
-    "#e8f0f8"
+    "#eaf1f8"
+
+
+iconText : String
+iconText =
+    "#8fc8ea"
+
+
+iconChipBg : String
+iconChipBg =
+    "rgba(143, 200, 234, 0.06)"
 
 
 connector : String
 connector =
-    "#4a6a8a"
+    "#365d7a"
 
 
 refBorder : String
 refBorder =
-    "#a0c4e8"
+    "#5a8fb0"
 
 
 errorHeading : String
@@ -68,6 +87,11 @@ errorDetailBg =
 
 requiredBorder : String
 requiredBorder =
+    "#e8a020"
+
+
+requiredStrip : String
+requiredStrip =
     "#e8a020"
 
 

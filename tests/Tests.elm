@@ -2,7 +2,7 @@ module Tests exposing (..)
 
 import Test exposing (..)
 import Expect
-import Render.Svg exposing (connectorPathD, extractRefName, fontWeightForRequired, iconForSchema, borderColorForRequired, Icon(..))
+import Render.Svg exposing (connectorPathD, extractRefName, fontWeightForRequired, iconForSchema, Icon(..))
 import Json.Schema as Schema
 
 
@@ -110,15 +110,5 @@ all =
                     Schema.boolean Nothing Nothing Nothing [] Nothing
                         |> iconForSchema
                         |> Expect.equal IBool
-            ]
-        , describe "borderColorForRequired"
-            [ test "required returns amber" <|
-                \_ ->
-                    borderColorForRequired True
-                        |> Expect.equal "#e8a020"
-            , test "optional returns default" <|
-                \_ ->
-                    borderColorForRequired False
-                        |> Expect.equal "#a0c4e8"
             ]
         ]
