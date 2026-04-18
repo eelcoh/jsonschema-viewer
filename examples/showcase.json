@@ -1,0 +1,500 @@
+{
+  "openapi" : "3.0.1",
+  "info" : {
+    "title" : "Showcase API",
+    "description" : "Our Showcase API allows you to test the connectivity to ING in the sandbox and production environment from your application. By connecting to this API, you will learn the flow and can apply it to connect to other APIs and create your application.\n\nThis API has a GET endpoint for each connection pattern:\n    \n- `/signed/greetings` - using JWS message signature\n- `/mtls-only/greetings` - using only mTLS and no message signature\n- `/greetings/single` - using HTTP message signature\n\nThe response to a successful request is a message similar to the example below:\n\n```\n{\\\"message\\\":\\\"Welcome to ING!\\\",\\\"id\\\":\\\"0d69d706-1e4a-4e2e-ac8d-f49bc8a31d1c\\\",\\\"messageTimestamp\\\":\\\"2018-07-30 13:23:53 GMT\\\"}\n```\n\nTo consume the Showcase API in the production environment you need to create an account, subscribe to the API and request an application token as explained in the production section of the [Get started guide for Premium APIs](https://developer.ing.com/openbanking/resources/get-started/premium). The subscription to the API will need to be approved by ING before you can call the Showcase API.\n\nTo consume the Showcase API in the sandbox environment you can use the example certificates and client id provided in the [Get started guide for Premium APIs.](https://developer.ing.com/openbanking/resources/get-started/premium)",
+    "contact" : {
+      "name" : "ING Developer Portal",
+      "url" : "https://developer.ing.com",
+      "email" : "apis@ing.com"
+    },
+    "version" : "5.0.0"
+  },
+  "servers" : [ {
+    "url" : "https://api.ing.com"
+  } ],
+  "security" : [ {
+    "ING-Application-Security" : [ "greetings:view" ]
+  } ],
+  "tags" : [ {
+    "name" : "Showcase API",
+    "description" : "Returns a message generated with a unique id and a timestamp indicating when it was produced."
+  } ],
+  "paths" : {
+    "/signed/greetings" : {
+      "get" : {
+        "tags" : [ "Showcase API" ],
+        "summary" : "Gives a greeting message using the JWS message signature",
+        "description" : "Returns a message generated with a unique id and a timestamp indicating when it was produced.",
+        "operationId" : "signedGreetingsGet",
+        "parameters" : [ {
+          "name" : "Authorization",
+          "in" : "header",
+          "description" : "OAuth2 Token.",
+          "required" : true,
+          "style" : "simple",
+          "explode" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "X-JWS-Signature",
+          "in" : "header",
+          "description" : "A JWS signature of the request message on application level. Supported signing algorithms are:\n- PS256 - RSASSA-PSS using SHA-256 and MGF1 with SHA-256 (this translates to RSASSA-PSS with hashAlgorithm:SHA-256, maskGenAlgorithm: MGF1 with SHA-256, saltLength:32)\n- PS384 - RSASSA-PSS using SHA-384 and MGF1 with SHA-384 (this translates to RSASSA-PSS with hashAlgorithm:SHA-384, maskGenAlgorithm: MGF1 with SHA-384, saltLength:48)\n- PS512 - RSASSA-PSS using SHA-512 and MGF1 with SHA-512 (this translates to RSASSA-PSS with hashAlgorithm:SHA-512, maskGenAlgorithm: MGF1 with SHA-512, saltLength:64)\n- ES256 - ECDSA using P-256 and SHA-256\n- ES384 - ECDSA using P-384 and SHA-384\n- ES512 - ECDSA using P-521 and SHA-512\n\nECDSA elliptic curves supported: BrainpoolP256r1, BrainpoolP384r1, BrainpoolP512r1, NIST Curve P-256, NIST Curve P-384, NIST Curve P-521\n\nSee \"Get Started\" for more information on how to generate the signature.",
+          "required" : true,
+          "style" : "simple",
+          "explode" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "Digest",
+          "in" : "header",
+          "description" : "SHA256 of the body.",
+          "required" : true,
+          "style" : "simple",
+          "explode" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "Content-type",
+          "in" : "header",
+          "description" : "The \"content-type\" header is used to indicate what type of media or resource is being used for the payload in the request. The value of the header should be application/x-www-form-urlencoded.",
+          "required" : true,
+          "style" : "simple",
+          "explode" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "401" : {
+            "description" : "Unauthorized - The request did not contain authorisation evidence. A valid subscription to the scope(s) that contain this API endpoint is required to allow the request to succeed.",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "200" : {
+            "description" : "OK",
+            "headers" : {
+              "X-ING-Response-ID" : {
+                "description" : "Unique tracing id which should be provided when reporting any issue.",
+                "style" : "simple",
+                "explode" : false,
+                "schema" : {
+                  "type" : "string"
+                }
+              },
+              "x-jws-signature" : {
+                "description" : "A JWS signature of the response message on application level.",
+                "style" : "simple",
+                "explode" : false,
+                "schema" : {
+                  "type" : "string"
+                }
+              }
+            },
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Greeting"
+                }
+              }
+            }
+          },
+          "500" : {
+            "description" : "Internal Server Error - Something went wrong on the server, check status site and/or report the issue. There's no need to really specify this any further (other than 503 below) as the client is powerless in fixing the condition that caused the error.",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "Not Found - The requested resource cannot be found. Check the request URL if it matches with the endpoint described.",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503" : {
+            "description" : "Service Unavailable - The API is temporarily unavailable. This is the only 500 code that allows for the client to try and remedy the condition (i.e. by retrying).",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "Bad Request - The request was malformed, headers may be missing or invalid.",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "ING-Application-Security" : [ "greetings:view" ]
+        } ]
+      }
+    },
+    "/mtls-only/greetings" : {
+      "get" : {
+        "tags" : [ "Showcase API" ],
+        "summary" : "Gives a greeting message using only mTLS and no message signature",
+        "description" : "Returns a message generated with a unique id and a timestamp indicating when it was produced.",
+        "operationId" : "mtlsOnlyGreetingsGet",
+        "parameters" : [ {
+          "name" : "Authorization",
+          "in" : "header",
+          "description" : "OAuth2 Token",
+          "required" : true,
+          "style" : "simple",
+          "explode" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "401" : {
+            "description" : "Unauthorized - The request did not contain authorisation evidence. A valid subscription to the scope(s) that contain this API endpoint is required to allow the request to succeed.",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "200" : {
+            "description" : "OK",
+            "headers" : {
+              "X-ING-Response-ID" : {
+                "description" : "Unique tracing id which should be provided when reporting any issue.",
+                "style" : "simple",
+                "explode" : false,
+                "schema" : {
+                  "type" : "string"
+                }
+              },
+              "x-jws-signature" : {
+                "description" : "A JWS signature of the response message on application level.",
+                "style" : "simple",
+                "explode" : false,
+                "schema" : {
+                  "type" : "string"
+                }
+              }
+            },
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Greeting"
+                }
+              }
+            }
+          },
+          "500" : {
+            "description" : "Internal Server Error - Something went wrong on the server, check status site and/or report the issue. There's no need to really specify this any further (other than 503 below) as the client is powerless in fixing the condition that caused the error.",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "Not Found - The requested resource cannot be found. Check the request URL if it matches with the endpoint described.",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503" : {
+            "description" : "Service Unavailable - The API is temporarily unavailable. This is the only 500 code that allows for the client to try and remedy the condition (i.e. by retrying).",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "Bad Request - The request was malformed, headers may be missing or invalid.",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "ING-Application-Security" : [ "greetings:view" ]
+        } ]
+      }
+    },
+    "/greetings/single" : {
+      "get" : {
+        "tags" : [ "Showcase API" ],
+        "summary" : "Gives a greeting message using the HTTP message signature",
+        "description" : "Returns a message generated with a unique id and a timestamp indicating when it was produced.\n ## Deprecation note:\nWe are moving from HTTP signature. You still can use this endpoint in cases where you plan to consume endpoints that \nrequire HTTP signature. But over time, all endpoints will require either JWS-signature or no signature \nat all (MTLS-only). If you plan to consume such endpoints, \nplease use `/signed/greetings` or `/mtls-only/greetings` respectively",
+        "operationId" : "greetingsSingleGet",
+        "parameters" : [ {
+          "name" : "Authorization",
+          "in" : "header",
+          "description" : "OAuth2 Token",
+          "required" : true,
+          "style" : "simple",
+          "explode" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "Signature",
+          "in" : "header",
+          "description" : "An HTTP signature of the request by the third party on application level. See \"Get Started\" for more information on how to generate.",
+          "required" : true,
+          "style" : "simple",
+          "explode" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "Digest",
+          "in" : "header",
+          "description" : "SHA256 of the body.",
+          "required" : true,
+          "style" : "simple",
+          "explode" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "Date",
+          "in" : "header",
+          "description" : "Standard http header element for date and time.",
+          "required" : true,
+          "style" : "simple",
+          "explode" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        } ],
+        "responses" : {
+          "401" : {
+            "description" : "Unauthorized - The request did not contain authorisation evidence. A valid subscription to the scope(s) that contain this API endpoint is required to allow the request to succeed.",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500" : {
+            "description" : "Internal Server Error - Something went wrong on the server, check status site and/or report the issue. There's no need to really specify this any further (other than 503 below) as the client is powerless in fixing the condition that caused the error.",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "Not Found - The requested resource cannot be found. Check the request URL if it matches with the endpoint described.",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503" : {
+            "description" : "Service Unavailable - The API is temporarily unavailable. This is the only 500 code that allows for the client to try and remedy the condition (i.e. by retrying).",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "Bad Request - The request was malformed, headers may be missing or invalid.",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "200" : {
+            "description" : "OK",
+            "headers" : {
+              "X-ING-Response-ID" : {
+                "description" : "Unique tracing id which should be provided when reporting any issue.",
+                "style" : "simple",
+                "explode" : false,
+                "schema" : {
+                  "type" : "string"
+                }
+              },
+              "X-ING-ReqID" : {
+                "description" : "Request ID, can be a UUID",
+                "style" : "simple",
+                "explode" : false,
+                "schema" : {
+                  "type" : "string"
+                }
+              }
+            },
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Greeting"
+                }
+              }
+            }
+          }
+        },
+        "deprecated" : true,
+        "security" : [ {
+          "ING-Application-Security" : [ "greetings:view" ]
+        } ]
+      }
+    }
+  },
+  "components" : {
+    "schemas" : {
+      "Error" : {
+        "type" : "object",
+        "description" : "Error message.",
+        "properties" : {
+          "severity" : {
+            "type" : "string",
+            "enum" : [ "CRITICAL", "ERROR", "WARNING", "INFO" ],
+            "example" : "CRITICAL"
+          },
+          "code" : {
+            "type" : "string",
+            "description" : "Service-specific error code/keyword",
+            "example" : "errParseFailed"
+          },
+          "message" : {
+            "type" : "string",
+            "description" : "A descriptive error message for the consumer",
+            "example" : "Unexpected end of file (missing a terminator/close bracket?)"
+          },
+          "source" : {
+            "type" : "string",
+            "description" : "Optional source descriptor for this error",
+            "example" : "system76"
+          },
+          "target" : {
+            "type" : "string",
+            "description" : "Key/value pair indicating which input property caused the error"
+          },
+          "innerErrors" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/InnerError"
+            },
+            "minItems" : 0
+          }
+        },
+        "required" : [ "code", "innerErrors", "message", "severity" ]
+      },
+      "InnerError" : {
+        "type" : "object",
+        "description" : "Upstream error messages and detailed information on error state",
+        "properties" : {
+          "severity" : {
+            "type" : "string",
+            "enum" : [ "CRITICAL", "ERROR", "WARNING", "INFO" ],
+            "example" : "CRITICAL"
+          },
+          "code" : {
+            "type" : "string",
+            "description" : "Service-specific error code/keyword",
+            "example" : "errParseFailed"
+          },
+          "message" : {
+            "type" : "string",
+            "description" : "A descriptive error message for the consumer",
+            "example" : "Unexpected end of file (missing a terminator/close bracket?)"
+          },
+          "source" : {
+            "type" : "string",
+            "description" : "Optional source descriptor for this error",
+            "example" : "system76"
+          },
+          "target" : {
+            "type" : "string",
+            "description" : "Key/value pair indicating which input property caused the error"
+          }
+        },
+        "required" : [ "code", "message", "severity" ]
+      },
+      "Greeting" : {
+        "type" : "object",
+        "properties" : {
+          "message" : {
+            "type" : "string",
+            "description" : "A greeting message.",
+            "example" : "Welcome to ING!"
+          },
+          "id" : {
+            "type" : "string",
+            "description" : "A generated UUID.",
+            "example" : "aba4b176-8834-467d-9c2a-ee6acfc8fceb"
+          },
+          "messageTimestamp" : {
+            "type" : "string",
+            "description" : "The current time (GMT).",
+            "example" : "2023-07-30 15:42:17 GMT"
+          }
+        },
+        "required" : [ "id", "message", "messageTimestamp" ]
+      }
+    },
+    "securitySchemes" : {
+      "ING-Application-Security" : {
+        "type" : "oauth2",
+        "flows" : {
+          "clientCredentials" : {
+            "tokenUrl" : "https://api.ing.com/oauth2/token",
+            "scopes" : {
+              "greetings:view" : "Get greetings messages."
+            }
+          }
+        }
+      }
+    }
+  }
+}

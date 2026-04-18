@@ -1,335 +1,448 @@
 # Architecture Patterns
 
-**Domain:** Interactive SVG diagram viewer (JSON Schema)
-**Researched:** 2026-04-03
+**Domain:** Elm 0.19.1 JSON Schema SVG Viewer - v1.1 Professional Visuals
+**Researched:** 2026-04-09
 
----
+## Current Architecture (v1.0 Actual State)
 
-## Existing Architecture (What We Have)
-
-The proof-of-concept is a `Browser.sandbox` with a pure rendering pipeline:
+The codebase has a clean three-layer structure across 4 source files (1,806 lines total):
 
 ```
-JSON string (hardcoded)
-  → Json.Decode.decodeString decoder
-  → Result Json.Decode.Error Json.Schema.Model
-  → Render.Svg.view defs schema
-  → Html.Html msg (SVG wrapped in Html)
+Main.elm (448 lines) — Browser.element, state machine, wiring
+  |
+  +-- Json.Schema (325 lines)          — Schema union type, all record aliases
+  +-- Json.Schema.Decode (170 lines)   — JSON -> Schema.Model decoder
+  +-- Render.Svg (863 lines)           — Schema -> SVG with coordinate-threading
 ```
 
-Three modules:
-- `Json.Schema` — type definitions (Schema union, Definitions dict, ObjectProperty)
-- `Json.Schema.Decode` — draft-07 decoder, recursive via `lazy`
-- `Render.Svg` — coordinate-threading renderer: each fn returns `(Svg msg, Dimensions)`
+The earlier ARCHITECTURE.md proposed `Render.Theme` and `Render.Node` modules, but these were NOT built in v1.0. All style values remain as inline literals or module-level constants in `Render.Svg`. The `ObjectWithCombinator` Schema variant was also proposed but not added. This document reflects the actual codebase state.
 
-Key characteristics of the renderer:
-- `viewSchema` dispatches on `Schema` variant
-- Layout is computed bottom-up: callee returns its own bounding box `(width, height)`
-- No state, no messages, no interaction — pure `msg` parameter never used
-- `Debug.log` calls are embedded and must be removed
+### Actual Data Flow
 
----
+```
+JSON string (textarea / file upload)
+    |
+    v (via debounced Msg in Main.elm)
+Json.Schema.Decode.decoder : Decoder Schema.Model
+    |
+    v
+Schema.Model { definitions : Definitions, schema : Schema }
+    |
+    v (stored in Main.elm model)
+Render.Svg.view toggleMsg collapsedNodes defs schema
+    |
+    v
+viewSchema Set.empty defs collapsedNodes toggleMsg "root" (0,0) Nothing "700" schema
+    |
+    For each schema node in the tree:
+      iconRect / roundRect  -- returns (Svg msg, Dimensions)
+      clickableGroup        -- wraps with click handler (if collapsible)
+      viewProperties / viewItems / viewMulti  -- recursive, accumulates Y
+      connectorPath         -- emitted per child before recursive call
+    |
+    v
+Svg.svg [ viewBox (computed from Dimensions) ] [ schemaView ]
+```
 
-## Target Architecture: What Needs to Change
+### Coordinate-Threading Pattern (Actual Implementation)
 
-### 1. Browser.sandbox → Browser.element
+Every render function signature ends with `Coordinates -> (Svg msg, Dimensions)` or returns `(List (Svg msg), Coordinates)`.
 
-`Browser.sandbox` has no `Cmd`, no subscriptions, and no `Flags`. Adding user input (paste/file upload) requires `Browser.element` for:
-- `Html.Events.on "change"` for file input (needs `File` API via ports or `elm/file`)
-- No `Cmd` is required if using only textarea input, but `Browser.element` is the right upgrade path regardless
+- `Coordinates = (Float, Float)` — `(x, y)` top-left origin of where to place this element
+- `Dimensions = (Float, Float)` — `(rightEdgeX, bottomEdgeY)` after placing the element
 
-The `Model` type in `Main.elm` changes from `Result Json.Decode.Error Json.Schema.Model` to a record that also holds UI state.
+Children are placed at `(parentRightEdge + 10, parentY)` horizontally. The 10px gap is both the connector gap and the indent constant (`ySpace = 10`).
 
-### 2. New Model Shape
+**Key invariant:** `viewProperties` and `viewItems` accept `parentRightX` and `parentY` as separate floats (not as Coordinates) specifically to emit connector lines from `(parentRightX, parentY + 14)` to `(childX, childY + 14)`. The `+ 14` is half of `pillHeight = 28`.
+
+### Current Style Constants (All in Render.Svg)
 
 ```elm
-type alias Model =
-    { schemaInput : String
-    , parseResult : Result String Json.Schema.Model
-    , expandState : ExpandState
+ySpace = 10           -- horizontal gap between parent and children
+pillHeight = 28       -- hardcoded everywhere: rect height, connector midpoint, viewNameGraph dims
+charWidth = 7.2       -- used in computeTextWidth
+darkClr = color 57 114 206  -- "#3972ce" node fill
+lightClr = "#e6e6e6"  -- text, stroke, separator color
+connectorStroke = "#8baed6"  -- only used in connectorPath
+strokeWidth = "0.2"   -- rect borders
+separatorStrokeWidth = 1.2
+cornerRadius = "2"    -- rx/ry on rects
+refDashPattern = "5 3"  -- strokeDasharray on IRef nodes
+```
+
+These are NOT in a Theme record — they are scattered through `roundRect`, `iconRect`, `separatorGraph`, `iconGeneric`, `connectorPath`, `viewNameGraph`.
+
+### Current Schema Type (Json.Schema)
+
+```elm
+type Schema
+    = Object ObjectSchema
+    | Array ArraySchema
+    | String StringSchema
+    | Integer IntegerSchema
+    | Number NumberSchema
+    | Boolean BooleanSchema
+    | Null NullSchema
+    | Ref RefSchema
+    | OneOf BaseCombinatorSchema
+    | AnyOf BaseCombinatorSchema
+    | AllOf BaseCombinatorSchema
+    | Fallback Json.Decode.Value
+```
+
+`BaseSchema` has `title`, `description`, `examples`. `StringSchema` has `minLength`, `maxLength`, `pattern`, `format`. Number/integer schemas have `minimum`, `maximum`. These fields exist but are NOT rendered — they are decoded and stored but never surfaced in the SVG.
+
+### Current Decoder State (Json.Schema.Decode)
+
+`definitionsDecoder` only looks for the `"definitions"` key:
+```elm
+field "definitions" (keyValuePairs schemaDecoder |> map (...prefix "#/definitions/"))
+```
+`$defs` (JSON Schema 2020-12) is not supported. A schema using `$defs` will decode with empty definitions, making all `$ref` nodes display as unresolvable labels.
+
+`schemaDecoder` uses `oneOf` with 12 branches. Because `object` is checked first and requires `"type": "object"`, a schema with both `"type": "object"` and `"oneOf"` will match the object branch and silently drop the `oneOf` field.
+
+`extractRefName` strips exactly 14 characters (`String.dropLeft 14`), which correctly strips `#/definitions/` (14 chars) but would produce a wrong result for `#/$defs/` (8 chars) without modification.
+
+## Architecture for v1.1: Integration Points
+
+### Integration Point 1: Style/Theme Extraction (Render.Svg refactor)
+
+**What:** Extract all hardcoded style values from `Render.Svg` into a `Render.Theme` module as a record.
+
+**New module:** `src/Render/Theme.elm` with `type alias Theme` and `default : Theme`.
+
+**Integration:** `view` gains a `Theme` parameter. This threads down through `viewSchema`, `viewProperties`, `viewItems`, `viewMulti`, `iconRect`, `roundRect`, `separatorGraph`, `iconGeneric`, `viewNameGraph`, `connectorPath`.
+
+**Change surface:** Every render function in `Render.Svg` gains `Theme` as first parameter. This is mechanical: no behavior change, output SVG is pixel-identical. Testable with compile check only.
+
+**Why now, before visual changes:** All subsequent visual changes (colors, sizing, spacing) modify Theme values. Without this refactor, each visual change requires hunting through multiple functions.
+
+**Suggested Theme fields for v1.1 blueprint style:**
+
+```elm
+type alias Theme =
+    { -- Node colors (type-coded)
+      objectColor : String      -- Object nodes
+    , arrayColor : String       -- Array nodes
+    , stringColor : String      -- String nodes
+    , numberColor : String      -- Number/Integer nodes
+    , boolColor : String        -- Boolean nodes
+    , nullColor : String        -- Null nodes
+    , refColor : String         -- Ref nodes
+    , combinatorColor : String  -- OneOf/AnyOf/AllOf nodes
+    , nodeText : String         -- Text on all nodes
+    , connectorStroke : String  -- Bezier curves
+
+    -- Typography
+    , fontFamily : String
+    , fontSize : Float
+    , charWidth : Float         -- for computeTextWidth
+
+    -- Layout
+    , pillHeight : Float        -- single-line node height
+    , nodeHPadding : Float      -- horizontal padding inside pill
+    , nodeVPadding : Float      -- vertical padding for multi-line
+    , childIndent : Float       -- horizontal gap between parent and children
+    , siblingGap : Float        -- vertical gap between siblings
+
+    -- Node shape
+    , cornerRadius : Float
+    , strokeWidth : Float
+    , refDashPattern : String
+    , connectorWidth : Float
+    , separatorWidth : Float
+
+    -- Typography weights
+    , requiredWeight : String
+    , optionalWeight : String
+    }
+```
+
+**Color-coding integration:** `iconRect` currently uses `darkClr` uniformly for all node fills. With Theme, `iconRect` receives an `Icon` to look up the correct color from Theme:
+
+```elm
+nodeColor : Theme -> Icon -> String
+nodeColor theme icon =
+    case icon of
+        IObject -> theme.objectColor
+        IList   -> theme.arrayColor
+        IStr    -> theme.stringColor
+        IInt    -> theme.numberColor
+        IFloat  -> theme.numberColor
+        IBool   -> theme.boolColor
+        INull   -> theme.nullColor
+        IRef _  -> theme.refColor
+        IFile   -> theme.objectColor
+```
+
+This is the key integration point for blueprint-style color coding — one function maps icon to theme color.
+
+### Integration Point 2: Information Density on Nodes (Render.Svg + Render.Node)
+
+**What:** Show description, constraints (minLength/maxLength, minimum/maximum, pattern), format annotations, and enum values on pills. Currently only the field name appears.
+
+**Problem:** `pillHeight = 28` is assumed constant in connector midpoint math (`+ 14`), rect height attributes (`"28"`), and dimension returns (`28 + y`). Multi-line nodes break this assumption.
+
+**Solution: `Render.Node` module with measure-then-render split**
+
+New module `src/Render/Node.elm` provides:
+
+```elm
+type alias NodeLine =
+    { text : String
+    , style : LineStyle
     }
 
-type alias ExpandState =
-    Set NodePath
+type LineStyle
+    = Primary    -- icon + name, bold
+    | Secondary  -- description, smaller/lighter
+    | Tertiary   -- constraints/format, smallest
 
-type alias NodePath =
-    List String
+type alias NodeContent =
+    { icon : Icon
+    , lines : List NodeLine
+    , isDashed : Bool
+    }
+
+type alias NodeMetrics =
+    { width : Float
+    , height : Float       -- varies with line count
+    , anchorY : Float      -- connector attachment point (vertical center of first line)
+    }
+
+nodeContentFromSchema : Schema -> Maybe String -> NodeContent
+measure : Theme -> NodeContent -> NodeMetrics
+render : Theme -> Coordinates -> NodeContent -> NodeMetrics -> Svg msg
 ```
 
-`NodePath` uniquely identifies a node in the schema tree by the sequence of property names (and special segments like `"items"`, `"oneOf[0]"`, `"$ref"`) traversed to reach it. Example: `["vegetables", "items"]` identifies the items schema of the `vegetables` property.
+**Integration with coordinate-threading:** The `+ 14` connector midpoint changes to `+ metrics.anchorY`. Every call to `connectorPath` that currently uses `y + 14` must use `y + metrics.anchorY` from the measured content. This is the highest-risk change because it touches all connector emission in `viewProperties`, `viewItems`, and the array `itemConnector`.
 
-### 3. Msg Additions
+**Build order implication:** Build `Render.Node` after `Render.Theme` is extracted (so Theme is available to pass to `measure`), but before making visual changes that depend on variable node heights.
+
+**What each Schema variant surfaces:**
+
+| Schema Variant | Primary | Secondary | Tertiary |
+|---------------|---------|-----------|---------|
+| Object | name | description | minProperties/maxProperties |
+| Array | name | description | minItems/maxItems |
+| String | name | description | minLength/maxLength, pattern, format |
+| Integer/Number | name | description | minimum/maximum, enum values |
+| Boolean | name | description | enum values |
+| Null | name | description | — |
+| Ref | defName | — | — |
+| OneOf/AnyOf/AllOf | combinator label | description | — |
+
+**Connector attachment:** With multi-line pills, the connector should attach at the vertical center of the first line (Primary), not the center of the whole pill. `anchorY` = `theme.nodeVPadding + theme.fontSize * 0.7`.
+
+### Integration Point 3: Decoder Fixes
+
+#### 3a: $defs Support
+
+**Location:** `Json.Schema.Decode.definitionsDecoder`
+
+**Change:** Two-field lookup, merge results:
 
 ```elm
-type Msg
-    = SchemaInputChanged String
-    | ToggleNode NodePath
-    | NoOp
+definitionsDecoder : Decoder Schema.Definitions
+definitionsDecoder =
+    let
+        defsField key prefix =
+            field key
+                (keyValuePairs schemaDecoder
+                    |> map (List.map (Tuple.mapFirst ((++) prefix)) >> Dict.fromList)
+                )
+                |> maybe
+                |> map (Maybe.withDefault Dict.empty)
+    in
+    map2 Dict.union
+        (defsField "definitions" "#/definitions/")
+        (defsField "$defs" "#/$defs/")
 ```
 
-`SchemaInputChanged` triggers re-parse. `ToggleNode` flips membership of a path in `ExpandState`.
-
-### 4. ExpandState Data Structure
-
-Use `Set (List String)` (which requires `Set` from `elm/core` with `comparable` — `List String` is comparable). A path is "expanded" if it is a member of the set.
-
-Default state: all container nodes collapsed (empty set), or optionally root expanded. The first render should show root expanded and all children collapsed so the diagram is immediately useful.
-
----
-
-## Recommended Architecture
-
-```
-Browser.element
-│
-├── Model
-│   ├── schemaInput : String          -- raw textarea content
-│   ├── parseResult : Result String Json.Schema.Model
-│   └── expandState : Set NodePath    -- which nodes are open
-│
-├── Update
-│   ├── SchemaInputChanged s  →  re-parse, reset expandState
-│   └── ToggleNode path       →  Set.toggle path expandState
-│
-└── View
-    ├── Html textarea / file input
-    └── Render.Svg.view defs schema expandState
-        └── viewSchema defs expandState path schema
-            ├── if path ∈ expandState → render children
-            └── else → render collapsed node with click handler
-```
-
-### Component Boundaries
-
-| Component | Responsibility | Communicates With |
-|-----------|---------------|-------------------|
-| `Main.elm` | App shell, Model, Msg, update, input UI | `Json.Schema.Decode`, `Render.Svg` |
-| `Json.Schema` | Schema type definitions — NO changes needed | Referenced by all modules |
-| `Json.Schema.Decode` | Decoder — NO changes needed | Used by `Main.elm` |
-| `Render.Svg` | SVG layout and rendering — SIGNIFICANT changes | Receives `expandState`, emits `Msg` |
-
-### New Module: `Diagram.NodePath` (recommended)
-
-Extract path logic into its own module to keep `Render.Svg` clean:
+**`extractRefName` fix:** Must handle both prefixes. Current `String.dropLeft 14` only works for `#/definitions/`. Correct fix:
 
 ```elm
-module Diagram.NodePath exposing (NodePath, child, items, ref, combinator, toString)
-
-type alias NodePath = List String
-
-child : String -> NodePath -> NodePath
-items : NodePath -> NodePath
-ref : String -> NodePath -> NodePath
-combinator : Int -> NodePath -> NodePath
+extractRefName : String -> String
+extractRefName ref =
+    if String.startsWith "#/definitions/" ref then
+        String.dropLeft 14 ref
+    else if String.startsWith "#/$defs/" ref then
+        String.dropLeft 8 ref
+    else
+        ref
 ```
 
-This isolates path construction rules and makes them testable.
+**No Schema type changes needed.** `Definitions` remains `Dict String Schema`. The prefix is the lookup key convention.
 
----
+**No Render.Svg changes needed.** `Dict.get ref defs` already handles whichever prefix the ref string uses, as long as both the stored key and the ref value use the same prefix.
 
-## Data Flow Changes for Interactivity
+**Risk:** Very low. Isolated to two functions. Existing tests will still pass.
 
-### Current flow (pure rendering)
+#### 3b: Combined type+combinator schemas
+
+**Problem:** A schema like `{"type": "object", "properties": {...}, "oneOf": [...]}` currently matches the `object` decoder branch (first match in `oneOf`) and the `oneOf` field is silently ignored.
+
+**Recommended approach: New Schema variant**
+
+```elm
+-- Add to Json.Schema
+type Schema
+    = ...existing...
+    | ObjectWithCombinator ObjectSchema CombinatorKind (List Schema)
+
+type CombinatorKind = OneOfKind | AnyOfKind | AllOfKind
+```
+
+**Decoder change:** Add three specific decoders before the plain object decoder in `schemaDecoder`:
+
+```elm
+oneOf
+    [ objectWithOneOfDecoder   -- NEW: type=object + oneOf
+    , objectWithAnyOfDecoder   -- NEW: type=object + anyOf
+    , objectWithAllOfDecoder   -- NEW: type=object + allOf
+    , objectDecoder            -- existing: type=object only
+    , ...
+    ]
+```
+
+Each combined decoder requires both `"type": "object"` (via `withType`) AND the combinator field (`required "oneOf" ...`).
+
+**Renderer addition:** Add a case to `viewSchema`:
+
+```elm
+Schema.ObjectWithCombinator objSchema kind subSchemas ->
+    -- Render object pill (same as Object branch)
+    -- If expanded: render properties (same as Object branch)
+    --              then render combinator group below properties
+    --              (reuse viewMulti pattern with sub-schema list)
+```
+
+**Risk:** Medium. New Schema variant requires adding a case to `viewSchema` and the `getName` function in `Json.Schema`. The `Fallback` pattern provides safety — if any test schema hits an unexpected state, it silently renders as empty rather than crashing.
+
+### Integration Point 4: Blueprint Layout and Spacing
+
+**What:** Adjust spacing constants in Theme to create breathing room: wider `childIndent`, larger `siblingGap`, increased `nodeHPadding`.
+
+**Integration:** Pure Theme value changes after `Render.Theme` is extracted. No structural code changes needed.
+
+**Connector style:** Change from `"#8baed6"` blue to a lighter blueprint-grid color. Pure Theme value.
+
+**Node stroke style:** Blueprint style uses outlined nodes (transparent or very light fill, visible stroke) rather than solid-fill dark nodes. This changes `nodeFill` and `nodeStroke` in Theme, plus the text color inverts (currently light text on dark fill; blueprint uses dark text on light/transparent fill).
+
+**Risk:** Low for spacing. Medium for fill/stroke inversion because text color, separator color, and border color all need to change together consistently.
+
+### Integration Point 5: RenderContext Grouping (Optional, Recommended)
+
+`viewSchema` currently has 9 parameters:
+```elm
+viewSchema : Set String -> Definitions -> Set String -> (String -> msg) -> String -> Coordinates -> Maybe Name -> String -> Schema -> (Svg msg, Dimensions)
+```
+
+With Theme added, this becomes 10. Consider grouping the stable-per-render-tree context:
+
+```elm
+type alias RenderContext msg =
+    { theme : Theme
+    , definitions : Definitions
+    , collapsedNodes : Set String
+    , toggleMsg : String -> msg
+    }
+```
+
+This reduces `viewSchema` to:
+```elm
+viewSchema : RenderContext msg -> Set String -> String -> Coordinates -> Maybe Name -> String -> Schema -> (Svg msg, Dimensions)
+```
+
+7 parameters, and `RenderContext` is constructed once in `view` and threaded unchanged. This is a mechanical refactor with no behavior change, best done alongside the Theme extraction.
+
+## Recommended Module Map for v1.1
 
 ```
-viewSchema defs coords name schema
-  → (Svg msg, Dimensions)
+Main.elm
+  |
+  +-- Json.Schema              (types: Schema union, ObjectSchema, StringSchema, etc.)
+  +-- Json.Schema.Decode       (JSON -> Schema.Model; add $defs, add ObjectWithCombinator decoders)
+  +-- Render.Theme             (NEW: Theme record, default blueprint theme)
+  +-- Render.Node              (NEW: NodeContent, NodeMetrics, nodeContentFromSchema, measure, render)
+  +-- Render.Svg               (MODIFIED: thread Theme/RenderContext, use Render.Node for pills)
 ```
 
-### New flow (interactive rendering)
-
-```
-viewSchema defs expandState path coords name schema
-  → (Svg Msg, Dimensions)
-```
-
-Two new parameters thread through all view functions:
-- `expandState : Set NodePath` — read-only, checked at each expandable node
-- `path : NodePath` — the address of the current node, built up as recursion descends
-
-Every call to `viewSchema` appends to `path` before the recursive call. When the renderer reaches an expandable node (`Object`, `Array`, `OneOf`, `AnyOf`, `AllOf`, `Ref`):
-
-1. Render the node header pill with an `onClick (ToggleNode path)` attribute on the rect or a collapse/expand indicator
-2. Check `Set.member path expandState`
-3. If expanded: render children as before, passing `child propName path` as the path for each child
-4. If collapsed: render only the header, children omitted from SVG output
-
-### Connector Lines
-
-Currently absent from the renderer. They are needed to show tree structure. A connector line runs from the right edge of the parent pill to the left edge of each child pill. Since each `view*` function already returns its bounding `Dimensions`, connector coordinates can be computed during layout — no structural change needed, just additional `Svg.line` elements emitted alongside child groups.
-
-### SVG Viewport
-
-The current hardcoded `520x520` viewport is inadequate for real schemas. Change to:
-- Compute total diagram dimensions from the root node's returned `Dimensions`
-- Emit `viewBox "0 0 {w} {h}"` dynamically
-- Wrap in a scrollable `Html.div` with overflow scroll, or use SVG `viewBox` with a fixed viewport and pan
-
-For v1, a simple approach is to compute dimensions from the rendered schema and use that as the SVG size. Pan/zoom can come later.
-
----
+| Module | Responsibility | Depends On | New vs Modified |
+|--------|---------------|------------|-----------------|
+| `Json.Schema` | Pure types only | Nothing | Modified (add ObjectWithCombinator, CombinatorKind) |
+| `Json.Schema.Decode` | JSON -> Schema | `Json.Schema` | Modified ($defs, combined decoders) |
+| `Render.Theme` | Visual config record | Nothing | NEW |
+| `Render.Node` | Single-node measure + render | `Render.Theme`, `Json.Schema` | NEW |
+| `Render.Svg` | Tree layout, coordinate-threading, connectors | All above | Modified (thread Theme, use Node) |
+| `Main` | App state, wiring | All above | Minor (pass Theme to view) |
 
 ## Patterns to Follow
 
-### Pattern 1: Thread State Through View Functions, Don't Use Global Refs
+### Pattern 1: Record-as-Config Threading
 
-Pass `expandState` and `path` as explicit parameters down the call tree. Do not use module-level state or global configuration.
+Pass `Theme` (and optionally `RenderContext`) as the first parameter to all render functions. This is idiomatic Elm: no global state, no module-level mutable config. Every function explicitly receives what it needs.
 
-```elm
-viewSchema :
-    Definitions
-    -> Set NodePath
-    -> NodePath
-    -> Coordinates
-    -> Maybe Name
-    -> Schema
-    -> ( Svg Msg, Dimensions )
-```
+Do not use CSS classes or a style sheet for SVG elements. SVG attribute styling is what the codebase already uses and is more portable.
 
-All callers (`viewProperties`, `viewItems`, `viewMulti`, etc.) need matching signature updates.
+### Pattern 2: Measure Before Render for Variable-Height Nodes
 
-### Pattern 2: Collapse Toggle as onClick on the Pill Rect
+For multi-line pills, the coordinate-threading pattern requires knowing element height before placing children. The split into `nodeContentFromSchema -> NodeContent` followed by `measure theme content -> NodeMetrics` followed by `render` is the correct pattern. The `measure` step is pure and testable.
 
-```elm
-Svg.rect
-    [ ...existing attrs...
-    , Svg.Events.onClick (ToggleNode currentPath)
-    ]
-    []
-```
+### Pattern 3: Decoder Ordering as Priority
 
-No JS interop needed. `Svg.Events` is in `elm/svg`.
+In `Json.Decode.oneOf`, more specific decoders must precede more general ones. Combined decoders (object+combinator) must come before their component decoders (plain object, standalone combinator). Ordering is the only mechanism for priority — there is no explicit precedence.
 
-### Pattern 3: Ref Expansion as Toggle (NOT Auto-Inline)
+### Pattern 4: Prefix Convention for Definitions Lookup
 
-When a `Ref` node is collapsed, show the reference label. When expanded, look up the definition in `Definitions` and render the resolved schema inline, using the ref path as the parent path prefix. This prevents infinite loops from circular refs by using `NodePath` depth as a natural limit — if the path already contains the same ref segment, stop rendering.
-
-```elm
--- In viewSchema, Schema.Ref branch:
-if Set.member path expandState then
-    case Dict.get ref defs of
-        Nothing -> renderRefLabel name ref coords
-        Just resolvedSchema ->
-            let refPath = Diagram.NodePath.ref refName path
-            in  renderRefLabel name ref coords
-                    |> withExpanded (viewSchema defs expandState refPath ...)
-else
-    renderRefLabel name ref coords |> withCollapseIndicator
-```
-
-### Pattern 4: Input Area as Plain HTML Textarea
-
-Keep schema input as a `Html.textarea` with `onInput SchemaInputChanged`. Parse on every change with `Json.Decode.decodeString decoder`. Show error text when parse fails. No debouncing needed for v1 — Elm's virtual DOM is fast enough for schema-size inputs.
-
----
+Definitions are stored with their full reference prefix as the key. A `$ref: "#/definitions/Foo"` is stored as `Dict.get "#/definitions/Foo"`. This means `$defs` entries must be stored as `"#/$defs/Foo"` — not normalized to a common prefix — to match `$ref` values from 2020-12 schemas without any additional lookup logic.
 
 ## Anti-Patterns to Avoid
 
-### Anti-Pattern 1: Global Mutable Expand State Outside Elm Model
+### Anti-Pattern 1: Style Logic in Schema Types
 
-Storing expand state in JS (localStorage, window vars) via ports for v1 is unnecessary complexity. Keep it in Elm Model.
+Do not add color or size information to `Json.Schema` types. Schema types represent parsed document structure, not visual presentation. Color decisions belong in `Render.Theme`; the mapping from schema variant to color belongs in `Render.Svg` or `Render.Node`.
 
-### Anti-Pattern 2: Pre-Expanding All Nodes
+### Anti-Pattern 2: Normalizing $defs and $definitions to a Single Prefix
 
-Rendering the entire schema expanded on first load defeats the purpose of expand/collapse and causes layout explosions on large schemas. Default to root-expanded, rest collapsed.
+It is tempting to normalize both to a common prefix during decode. However, this requires modifying all stored `$ref` values inside decoded schemas (since refs like `"#/$defs/Foo"` would no longer match after normalization). The current prefix-as-key convention is simpler: store what the ref says, look up what the ref says.
 
-### Anti-Pattern 3: Recomputing Layout on Every Render Unnecessarily
+### Anti-Pattern 3: Flat Connector Midpoint (hardcoded +14)
 
-The coordinate-threading pattern is already efficient — layout is computed once per render pass as part of the SVG generation. Do not add a separate "compute layout" phase or cache layout separately. Let `Render.Svg.view` remain a pure function of `(Definitions, Schema, ExpandState)`.
+After adding multi-line nodes, `y + 14` is wrong for taller pills. The measure-then-render pattern provides `metrics.anchorY` for the correct attachment point. Using `+ 14` anywhere after introducing variable-height pills will produce misaligned connectors.
 
-### Anti-Pattern 4: Using Elm's `Svg.Lazy` for Individual Nodes
+### Anti-Pattern 4: Merging Combinator Sub-Schemas into Object Properties
 
-`Svg.Lazy` caches based on reference equality of arguments. Since `expandState` changes on every toggle, any node that receives it as an argument will not benefit from lazy. Reserve `Svg.Lazy` for the top-level view call only, and only after profiling confirms it is needed.
+For `ObjectWithCombinator`, the combinator sub-schemas are alternatives or constraints, not additional properties. Appending them to the object's `properties` list would lose semantic meaning and visually mislead. Render them as a distinct child branch (reusing `viewMulti` with a combinator label pill).
 
-### Anti-Pattern 5: Keeping Debug.log in Render.Svg
+## Build Order (Dependency-Driven)
 
-`Debug.log` is already present in `iconGeneric` (text color) and `color` function. These must be removed before any interactivity work — they cause `elm make --optimize` to fail and they fire on every render, which will be very noisy once interactions trigger re-renders.
+1. **Decoder fixes** (`$defs` support + `extractRefName`) — Isolated to `Json.Schema.Decode` and `Render.Svg` helper. No render changes. Lowest risk, provides immediate value for 2020-12 schemas. Zero dependencies on other v1.1 changes.
 
----
+2. **`Render.Theme` extraction** — Move all style constants from `Render.Svg` into a Theme record. Thread through all render functions. No behavior change. Prerequisite for all visual changes.
 
-## Build Order (Phase Dependencies)
+3. **`RenderContext` grouping** (optional, can be done with Step 2) — Reduces function signature noise before adding more parameters for multi-line nodes.
 
-### Step 1: Remove Debug.log and fix production build
+4. **Blueprint style values** — Update Theme defaults: colors, stroke style, fill inversion, spacing. Pure value changes once Theme is extracted. Requires verifying text contrast after fill inversion.
 
-**Why first:** `Debug.log` in `Render.Svg` fires on every render. With interactions triggering frequent re-renders it becomes unusable noise, and blocks optimized builds. Also validates the existing code compiles cleanly.
+5. **`ObjectWithCombinator` variant** — Add Schema variant, three new decoder branches, new `viewSchema` case. Medium complexity, isolated to decoder and renderer. Can be done before or after visual changes.
 
-Files changed: `Render.Svg`
-
-### Step 2: Upgrade to Browser.element, add textarea input
-
-**Why second:** Unblocks user input. The Model becomes a record. `SchemaInputChanged` msg and basic parse error display. No expand state yet — renderer stays unchanged, just wired to user input.
-
-Files changed: `Main.elm`
-
-### Step 3: Add NodePath module and ExpandState to Model
-
-**Why third:** Defines the data structures before the renderer needs them. `Diagram.NodePath` module created. `ExpandState` (Set NodePath) added to Model. `ToggleNode` msg added. No visual change yet.
-
-Files new/changed: `Diagram/NodePath.elm` (new), `Main.elm`
-
-### Step 4: Thread expandState and path through Render.Svg
-
-**Why fourth:** This is the large refactor — all view function signatures change. Compile-driven: start from `view`, work down. Nodes that are expandable get `onClick (ToggleNode path)`. Non-container nodes (String, Integer, etc.) just receive path but don't use it.
-
-Files changed: `Render.Svg`
-
-### Step 5: Implement expand/collapse visibility (hide children when collapsed)
-
-**Why fifth:** Now that paths are threaded, actually suppress child rendering when `Set.notMember path expandState`. Add expand/collapse indicator (a small +/- or triangle) to container nodes.
-
-Files changed: `Render.Svg`
-
-### Step 6: Implement $ref inline expansion
-
-**Why sixth:** Depends on expand/collapse working. When a Ref node is expanded, look up the definition and render it inline. Add circular-ref guard via path inspection.
-
-Files changed: `Render.Svg`, possibly `Diagram.NodePath`
-
-### Step 7: Add connector lines between parent and child nodes
-
-**Why seventh:** Connector lines require knowing the bounding boxes of parent and children — this is already available from the coordinate-threading pattern, so no structural change, just additional SVG elements. Best added after expand/collapse is stable so lines appear/disappear correctly.
-
-Files changed: `Render.Svg`
-
-### Step 8: Dynamic SVG viewport
-
-**Why last:** Depends on all layout work being stable. Compute diagram dimensions from root node's returned Dimensions, emit correct viewBox. Wrap in scrollable container.
-
-Files changed: `Main.elm`, `Render.Svg`
-
----
+6. **`Render.Node` and multi-line pills** — Highest risk. Requires changing every `y + 14` connector attachment, every hardcoded `"28"` rect height, and every `28 + y` dimension return. Do this last so visual style is settled before layout math changes.
 
 ## Scalability Considerations
 
-| Concern | At small schemas | At medium schemas (50+ nodes) | At large schemas (200+ nodes) |
-|---------|-----------------|-------------------------------|-------------------------------|
-| Render performance | No issue | No issue — Elm VDOM is fast | Consider collapsing subtrees by default |
-| Layout computation | Instant | Instant | Still instant — O(n) coordinate threading |
-| Circular $ref | Not a problem if no $refs | Medium risk | High risk — path-based guard required |
-| SVG viewport | Fixed 520x520 works | Needs dynamic sizing | Needs dynamic sizing + scroll |
-
----
-
-## Integration Points Summary
-
-| Feature | Touches Existing Code | New Code |
-|---------|----------------------|----------|
-| Browser.element upgrade | `Main.elm` — minimal changes | New Model record fields |
-| Textarea input | `Main.elm` — add view, msg | `SchemaInputChanged` handler |
-| ExpandState | `Main.elm` — Model field | `Diagram.NodePath` module |
-| onClick on pills | `Render.Svg` — add `Svg.Events.onClick` | None |
-| Thread path/expandState | `Render.Svg` — all view fn signatures | None |
-| Expand/collapse visibility | `Render.Svg` — conditional child rendering | Collapse indicator SVG |
-| $ref inline expansion | `Render.Svg` — Ref branch | Circular-ref guard |
-| Connector lines | `Render.Svg` — new SVG lines in layout fns | None |
-| Dynamic viewport | `Main.elm` + `Render.Svg` — return total dims | None |
-
----
+| Concern | v1.0 State | v1.1 Impact | Mitigation |
+|---------|-----------|-------------|------------|
+| Function parameter count | 9 params in viewSchema | Grows to 10+ without grouping | RenderContext record |
+| Node height assumption | Hardcoded 28px everywhere | Variable height breaks 6+ sites | Measure-before-render pattern |
+| Decoder branch count | 12 branches | Grows to 15 (3 combined decoders) | Ordering remains manageable |
+| extractRefName fragility | Hardcoded dropLeft 14 | Breaks for #/$defs/ refs | Replace with startsWith guards |
+| Style discoverability | Constants in 5+ functions | Theme centralizes all values | Render.Theme module |
+| Text width accuracy | charWidth 7.2 × char count | Monospace approximation, acceptable | No change needed |
 
 ## Sources
 
-- Elm 0.19.1 Browser module documentation (Browser.element vs Browser.sandbox): https://package.elm-lang.org/packages/elm/browser/latest/Browser
-- Elm SVG events: https://package.elm-lang.org/packages/elm/svg/latest/Svg-Events
-- Elm Set (comparable keys including List String): https://package.elm-lang.org/packages/elm/core/latest/Set
-- Source analysis of existing `Render.Svg`, `Json.Schema`, `Json.Schema.Decode`, `Main.elm` (HIGH confidence — direct code read)
-- Pattern derivation from Altova XMLSpy / Liquid XML Studio interaction model (MEDIUM confidence — behavioral observation of reference products)
+- Direct codebase analysis of all 4 source files (HIGH confidence — read from actual implementation)
+- JSON Schema draft-07 vs 2020-12 `$defs`/`definitions` distinction (HIGH confidence — well-documented spec change)
+- Elm 0.19.1 module and record patterns (HIGH confidence — stable, well-established patterns)

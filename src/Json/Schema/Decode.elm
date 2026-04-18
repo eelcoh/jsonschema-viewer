@@ -8,7 +8,7 @@ module Json.Schema.Decode exposing (decoder)
 
 import Dict
 import Json.Decode exposing (Decoder, andThen, bool, dict, fail, field, float, int, keyValuePairs, lazy, list, map, map2, maybe, nullable, oneOf, string, succeed, value)
-import Json.Decode.Pipeline exposing (optional, required)
+import Json.Decode.Pipeline exposing (custom, optional, required)
 import Json.Schema as Schema exposing (Schema)
 
 
@@ -21,12 +21,35 @@ decoder =
 
 definitionsDecoder : Decoder Schema.Definitions
 definitionsDecoder =
-    field "definitions"
-        (keyValuePairs schemaDecoder
-            |> map (List.map (Tuple.mapFirst ((++) "#/definitions/")) >> Dict.fromList)
-        )
-        |> maybe
-        |> map (Maybe.withDefault Dict.empty)
+    let
+        readDefs key =
+            field key
+                (keyValuePairs schemaDecoder
+                    |> map (List.map (Tuple.mapFirst (\k -> "#/definitions/" ++ k)) >> Dict.fromList)
+                )
+                |> maybe
+                |> map (Maybe.withDefault Dict.empty)
+    in
+    map2 Dict.union (readDefs "definitions") (readDefs "$defs")
+
+
+normalizeRef : String -> String
+normalizeRef ref =
+    if String.startsWith "#/$defs/" ref then
+        "#/definitions/" ++ String.dropLeft 8 ref
+
+    else
+        ref
+
+
+combinatorDecoder : Decoder (Maybe ( Schema.CombinatorKind, List Schema ))
+combinatorDecoder =
+    oneOf
+        [ field "oneOf" (list schemaDecoder) |> map (\s -> Just ( Schema.OneOfKind, s ))
+        , field "anyOf" (list schemaDecoder) |> map (\s -> Just ( Schema.AnyOfKind, s ))
+        , field "allOf" (list schemaDecoder) |> map (\s -> Just ( Schema.AllOfKind, s ))
+        , succeed Nothing
+        ]
 
 
 schemaDecoder : Decoder Schema
@@ -42,6 +65,7 @@ schemaDecoder =
                     |> maybeOptional "minProperties" int
                     |> maybeOptional "maxProperties" int
                     |> optional "examples" (list value) []
+                    |> custom combinatorDecoder
                     |> withType "object"
                 , succeed Schema.array
                     |> maybeOptional "title" string
@@ -50,6 +74,7 @@ schemaDecoder =
                     |> maybeOptional "minItems" int
                     |> maybeOptional "maxItems" int
                     |> optional "examples" (list value) []
+                    |> custom combinatorDecoder
                     |> withType "array"
                 , succeed Schema.string
                     |> maybeOptional "title" string
@@ -60,6 +85,7 @@ schemaDecoder =
                     |> maybeOptional "format" (string |> map stringFormat)
                     |> maybeOptional "enum" (list string)
                     |> optional "examples" (list value) []
+                    |> custom combinatorDecoder
                     |> withType "string"
                     |> map Schema.String
                 , succeed Schema.integer
@@ -69,6 +95,7 @@ schemaDecoder =
                     |> maybeOptional "maximum" int
                     |> maybeOptional "enum" (list int)
                     |> optional "examples" (list value) []
+                    |> custom combinatorDecoder
                     |> withType "integer"
                 , succeed Schema.float
                     |> maybeOptional "title" string
@@ -77,23 +104,37 @@ schemaDecoder =
                     |> maybeOptional "maximum" float
                     |> maybeOptional "enum" (list float)
                     |> optional "examples" (list value) []
+                    |> custom combinatorDecoder
                     |> withType "number"
                 , succeed Schema.boolean
                     |> maybeOptional "title" string
                     |> maybeOptional "description" string
                     |> maybeOptional "enum" (list bool)
                     |> optional "examples" (list value) []
+                    |> custom combinatorDecoder
                     |> withType "boolean"
                 , succeed Schema.null
                     |> maybeOptional "title" string
                     |> maybeOptional "description" string
                     |> optional "examples" (list value) []
+                    |> custom combinatorDecoder
                     |> withType "null"
+                , succeed Schema.object
+                    |> maybeOptional "title" string
+                    |> maybeOptional "description" string
+                    |> optional "properties" (dict schemaDecoder) Dict.empty
+                    |> optional "required" (list string) []
+                    |> maybeOptional "minProperties" int
+                    |> maybeOptional "maxProperties" int
+                    |> optional "examples" (list value) []
+                    |> custom combinatorDecoder
+                    |> withField "properties"
                 , succeed Schema.reference
                     |> maybeOptional "title" string
                     |> maybeOptional "description" string
-                    |> required "$ref" string
+                    |> required "$ref" (string |> map normalizeRef)
                     |> optional "examples" (list value) []
+                    |> custom combinatorDecoder
                 , succeed Schema.baseCombinatorSchema
                     |> maybeOptional "title" string
                     |> maybeOptional "description" string
@@ -122,6 +163,15 @@ schemaDecoder =
 withType : String -> Decoder a -> Decoder a
 withType typeString decoder_ =
     field "type" (constant typeString string)
+        |> andThen (always decoder_)
+
+
+{-| Ensure a JSON object has a specific field present (any value).
+Used for implicit type inference — e.g. a schema with "properties" is an object.
+-}
+withField : String -> Decoder a -> Decoder a
+withField fieldName decoder_ =
+    field fieldName value
         |> andThen (always decoder_)
 
 
