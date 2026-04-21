@@ -1,0 +1,3866 @@
+{
+  "swagger" : "2.0",
+  "info" : {
+    "description" : "The Direct Initiation Payment API allows consumers to execute direct-initiated payments on accounts for which a grant has been given to the API consumer.",
+    "version" : "4.0.0",
+    "title" : "Direct Initiation Payment API",
+    "contact" : {
+      "name" : "ING Developer Portal",
+      "url" : "https://developer.ing.com",
+      "email" : "apis@ing.com"
+    },
+    "license" : {
+      "name" : "Copyright (c) ING Bank N.V. All Rights Reserved.",
+      "url" : "http://developer.ing.com"
+    }
+  },
+  "host" : "api.ing.com",
+  "tags" : [ {
+    "name" : "direct-initiated-payment",
+    "description" : "Execute a single direct-initiated payment for all active European ING online payment accounts (SEPA Credit Transfer, Domestic Credit Transfer or True International Payment)"
+  } ],
+  "schemes" : [ "https" ],
+  "paths" : {
+    "/v1/payments/initiate-credit-transfers/preauthorized" : {
+      "post" : {
+        "tags" : [ "Initiate One-time Payment (Credit Transfer) in Direct Initiation mode" ],
+        "summary" : "Initiate Direct Payment Order (Credit Transfer) for External consumers via Gateway",
+        "description" : "API to initiate a credit transfer payment with single or multiple transaction with ISO 20022 pain.001.001.10 and status and status reason will be ISO compliant in the response.",
+        "operationId" : "addPaymentsPreAuthGrantV1",
+        "consumes" : [ "application/json" ],
+        "produces" : [ "application/json" ],
+        "parameters" : [ {
+          "name" : "X-Request-ID",
+          "in" : "header",
+          "description" : "ID of the request, unique to the call, as determined by the initiating party.",
+          "required" : false,
+          "type" : "string",
+          "format" : "uuid"
+        }, {
+          "name" : "Authorization",
+          "in" : "header",
+          "description" : "Bearer Token. Represents Application Access Token or Customer Access Token, depending on the use case. The process to obtain the Application Access Token is described in Client Credentials \"Authentication Flow\": https://developer.ing.com/openbanking/get-started",
+          "required" : false,
+          "type" : "string"
+        }, {
+          "name" : "Digest",
+          "in" : "header",
+          "description" : "The \"Digest\" Header header as defined in [RFC3230] contains a Hash of the message body. The only hash algorithms that may be used to calculate the Digest within the context of this specification are SHA-256 and SHA-512 as defined in [RFC5843].",
+          "required" : true,
+          "type" : "string",
+          "pattern" : "^[abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789?:()./,='+ -]+$"
+        }, {
+          "name" : "X-JWS-Signature",
+          "in" : "header",
+          "description" : "As specified in https://www.openbankingeurope.eu/media/2096/obe-json-web-signature-profile-for-open-banking.pdf, it consists of: 1. A JSON Web Signature Protected Header, 2. Data to be Signed (not present i.e. empty, as we have detached payload), 3. The JWS Signature Value.",
+          "required" : true,
+          "type" : "string"
+        }, {
+          "name" : "Content-Type",
+          "in" : "header",
+          "description" : "Used to specify the content type of the request data.",
+          "required" : true,
+          "type" : "string"
+        }, {
+          "in" : "body",
+          "name" : "payment",
+          "description" : "Payment Payload",
+          "required" : true,
+          "schema" : {
+            "$ref" : "#/definitions/PaymentOrderRequestV02WithoutSpp"
+          }
+        } ],
+        "security" : [ {
+          "ING-Application-Security" : [ "payment-accounts:preauthorized-credit-transfer:execute", "current-accounts:preauthorized-credit-transfers:create" ]
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK. Order successfully created",
+            "schema" : {
+              "$ref" : "#/definitions/MoneyTransferResponse"
+            }
+          },
+          "400" : {
+            "description" : "Bad Request",
+            "schema" : {
+              "$ref" : "#/definitions/Error"
+            }
+          },
+          "403" : {
+            "description" : "Forbidden",
+            "schema" : {
+              "$ref" : "#/definitions/Error"
+            }
+          },
+          "429" : {
+            "description" : "Too Many Requests",
+            "schema" : {
+              "$ref" : "#/definitions/Error"
+            }
+          },
+          "500" : {
+            "description" : "Internal Server Error",
+            "schema" : {
+              "$ref" : "#/definitions/Error"
+            }
+          },
+          "503" : {
+            "description" : "Service Unavailable",
+            "schema" : {
+              "$ref" : "#/definitions/Error"
+            }
+          },
+          "default" : {
+            "description" : "Unexpected error",
+            "schema" : {
+              "$ref" : "#/definitions/Error"
+            }
+          }
+        }
+      }
+    },
+    "/v1/payments/initiate-credit-transfers/preauthorized/{paymentId}" : {
+      "get" : {
+        "tags" : [ "Get Direct Initiated Payment" ],
+        "summary" : "Get payment status and details for Direct Initiated Payment Order (Credit Transfer) for consumers",
+        "description" : "API to get payment status & details for direct-initiated payment order based on the unique identifier of the payment (paymentId), as provided by ING as part of the response of the payment initiation request",
+        "produces" : [ "application/json" ],
+        "parameters" : [ {
+          "name" : "X-Request-ID",
+          "in" : "header",
+          "description" : "ID of the request, unique to the call, as determined by the initiating party.",
+          "required" : true,
+          "type" : "string",
+          "format" : "uuid"
+        }, {
+          "name" : "Authorization",
+          "in" : "header",
+          "description" : "Bearer Token. Represents Application Access Token or Customer Access Token, depending on the use case. The process to obtain the Application Access Token is described in Client Credentials \"Authentication Flow\": https://developer.ing.com/openbanking/get-started",
+          "required" : true,
+          "type" : "string"
+        }, {
+          "name" : "paymentId",
+          "in" : "path",
+          "description" : "Identification of payment instruction in ING (resource identification of the generated payment initiation resource)",
+          "required" : true,
+          "type" : "string"
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK. Request successfully processed",
+            "schema" : {
+              "$ref" : "#/definitions/PaymentResponse"
+            }
+          },
+          "400" : {
+            "description" : "Bad Request",
+            "schema" : {
+              "$ref" : "#/definitions/Error"
+            }
+          },
+          "403" : {
+            "description" : "Forbidden",
+            "schema" : {
+              "$ref" : "#/definitions/Error"
+            }
+          },
+          "404" : {
+            "description" : "Not Found",
+            "schema" : {
+              "$ref" : "#/definitions/Error"
+            }
+          },
+          "500" : {
+            "description" : "Internal Server Error",
+            "schema" : {
+              "$ref" : "#/definitions/Error"
+            }
+          },
+          "503" : {
+            "description" : "Service Unavailable",
+            "schema" : {
+              "$ref" : "#/definitions/Error"
+            }
+          },
+          "default" : {
+            "description" : "Unexpected Error",
+            "schema" : {
+              "$ref" : "#/definitions/Error"
+            }
+          }
+        }
+      }
+    }
+  },
+  "securityDefinitions" : {
+    "ING-Application-Security" : {
+      "type" : "oauth2",
+      "authorizationUrl" : "https://api.ing.com/oauth2/token",
+      "tokenUrl" : "https://api.ing.com/oauth2/token",
+      "flow" : "accessCode",
+      "scopes" : {
+        "payment-accounts:preauthorized-credit-transfer:execute" : "Legacy preauthorized payments",
+        "current-accounts:preauthorized-credit-transfers:create" : "Grant based preauthorized payments"
+      }
+    }
+  },
+  "definitions" : {
+    "Error" : {
+      "type" : "object",
+      "properties" : {
+        "error" : {
+          "type" : "object",
+          "description" : "Error message",
+          "properties" : {
+            "severity" : {
+              "type" : "string",
+              "enum" : [ "critical", "error", "warning", "info" ],
+              "x-ing-type" : "string"
+            },
+            "code" : {
+              "type" : "string",
+              "example" : "errParseFailed",
+              "description" : "Service-specific error code/keyword",
+              "x-ing-type" : "string"
+            },
+            "message" : {
+              "type" : "string",
+              "example" : "Unexpected end of file (missing a terminator/close bracket?)",
+              "description" : "A descriptive error message for the consumer",
+              "x-ing-type" : "string"
+            },
+            "source" : {
+              "type" : "string",
+              "example" : "system76",
+              "description" : "Optional source descriptor for this error",
+              "x-ing-type" : "string"
+            },
+            "target" : {
+              "type" : "string",
+              "description" : "Key/value pair indicating which input property caused the error",
+              "x-ing-type" : "string"
+            },
+            "innerErrors" : {
+              "type" : "array",
+              "items" : {
+                "type" : "object",
+                "description" : "Upstream error messages and detailed information on error state",
+                "properties" : {
+                  "severity" : {
+                    "type" : "string",
+                    "enum" : [ "critical", "error", "warning", "info" ],
+                    "x-ing-type" : "string"
+                  },
+                  "code" : {
+                    "type" : "string",
+                    "example" : "errParseFailed",
+                    "description" : "Service-specific error code/keyword",
+                    "x-ing-type" : "string"
+                  },
+                  "message" : {
+                    "type" : "string",
+                    "example" : "Unexpected end of file (missing a terminator/close bracket?)",
+                    "description" : "A descriptive error message for the consumer",
+                    "x-ing-type" : "string"
+                  },
+                  "source" : {
+                    "type" : "string",
+                    "example" : "system76",
+                    "description" : "Optional source descriptor for this error",
+                    "x-ing-type" : "string"
+                  },
+                  "target" : {
+                    "type" : "string",
+                    "description" : "Key/value pair indicating which input property caused the error",
+                    "x-ing-type" : "string"
+                  }
+                },
+                "required" : [ "code", "message", "severity" ],
+                "x-ing-type" : "object"
+              },
+              "x-ing-type" : "array"
+            }
+          },
+          "required" : [ "code", "message", "severity" ],
+          "x-ing-type" : "object"
+        }
+      },
+      "title" : "error_1.0"
+    },
+    "MoneyTransferResponse" : {
+      "type" : "object",
+      "required" : [ "transactionInformationAndStatus" ],
+      "properties" : {
+        "externalReference" : {
+          "type" : "string",
+          "description" : "External reference",
+          "x-ing-type" : "string"
+        },
+        "externalSource" : {
+          "type" : "string",
+          "description" : "External source",
+          "x-ing-type" : "string"
+        },
+        "transactionInformationAndStatus" : {
+          "$ref" : "#/definitions/transactionInformationAndStatus"
+        },
+        "_links" : {
+          "type" : "array",
+          "items" : {
+            "$ref" : "#/definitions/ExternalLink"
+          },
+          "minItems" : 0,
+          "x-ing-type" : "array"
+        },
+        "_messages" : {
+          "type" : "array",
+          "description" : "Array of messages if applicable.",
+          "items" : {
+            "$ref" : "#/definitions/ExternalMessage"
+          },
+          "minItems" : 0,
+          "x-ing-type" : "array"
+        }
+      },
+      "description" : "Response object containing the usecase and payload for the prepared money transfer"
+    },
+    "PaymentResponse" : {
+      "type" : "object",
+      "required" : [ "cstmrPmtStsRpt", "ingInstrId", "ingMsgId" ],
+      "properties" : {
+        "ingMsgId" : {
+          "type" : "string",
+          "format" : "uuid",
+          "description" : "Message/File uuid",
+          "x-ing-type" : "string"
+        },
+        "ingInstrId" : {
+          "type" : "string",
+          "format" : "uuid",
+          "description" : "Order uuid",
+          "x-ing-type" : "string"
+        },
+        "cstmrPmtStsRpt" : {
+          "$ref" : "#/definitions/CustomerPaymentStatusReportV11PaymentListResponse"
+        }
+      }
+    },
+    "CustomerPaymentStatusReportV11PaymentListResponse" : {
+      "type" : "object",
+      "required" : [ "orgnlGrpInfAndSts" ],
+      "properties" : {
+        "orgnlGrpInfAndSts" : {
+          "$ref" : "#/definitions/OriginalGroupHeader17"
+        },
+        "orgnlPmtInfAndSts" : {
+          "type" : "array",
+          "items" : {
+            "$ref" : "#/definitions/OriginalPaymentInstruction38"
+          },
+          "x-ing-type" : "array"
+        },
+        "splmtryData" : {
+          "type" : "array",
+          "items" : {
+            "$ref" : "#/definitions/SupplementaryData2"
+          },
+          "maxItems" : 1,
+          "x-ing-type" : "array"
+        }
+      }
+    },
+    "AccountIdentification4Choice" : {
+      "type" : "object",
+      "properties" : {
+        "iban" : {
+          "$ref" : "#/definitions/IBAN2007Identifier"
+        },
+        "othr" : {
+          "$ref" : "#/definitions/GenericAccountIdentification1"
+        }
+      }
+    },
+    "AccountSchemeName1Choice" : {
+      "type" : "object",
+      "properties" : {
+        "cd" : {
+          "$ref" : "#/definitions/ExternalAccountIdentification1Code"
+        },
+        "prtry" : {
+          "$ref" : "#/definitions/Max35Text"
+        }
+      }
+    },
+    "ActiveOrHistoricCurrencyAndAmount" : {
+      "type" : "object",
+      "required" : [ "ccy", "value" ],
+      "properties" : {
+        "value" : {
+          "$ref" : "#/definitions/ActiveOrHistoricCurrencyAndAmount_SimpleType"
+        },
+        "ccy" : {
+          "$ref" : "#/definitions/ActiveOrHistoricCurrencyCode"
+        }
+      }
+    },
+    "ActiveOrHistoricCurrencyAndAmount_SimpleType" : {
+      "type" : "number",
+      "minimum" : 0
+    },
+    "ActiveOrHistoricCurrencyCode" : {
+      "type" : "string",
+      "pattern" : "^([A-Z]{3,3})$"
+    },
+    "AddressType2Code" : {
+      "type" : "string",
+      "enum" : [ "ADDR", "PBOX", "HOME", "BIZZ", "MLTO", "DLVY" ]
+    },
+    "AddressType3Choice" : {
+      "type" : "object",
+      "properties" : {
+        "cd" : {
+          "$ref" : "#/definitions/AddressType2Code"
+        },
+        "prtry" : {
+          "$ref" : "#/definitions/GenericIdentification30"
+        }
+      }
+    },
+    "AmountType4Choice" : {
+      "type" : "object",
+      "properties" : {
+        "eqvtAmt" : {
+          "$ref" : "#/definitions/EquivalentAmount2"
+        },
+        "instdAmt" : {
+          "$ref" : "#/definitions/ActiveOrHistoricCurrencyAndAmount"
+        }
+      }
+    },
+    "AnyBICDec2014Identifier" : {
+      "type" : "string",
+      "pattern" : "^([0-9A-Z]{4,4}[A-Z]{2,2}[0-9A-Z]{2,2}([0-9A-Z]{3,3})?)$"
+    },
+    "BICFIDec2014Identifier" : {
+      "type" : "string",
+      "pattern" : "^([0-9A-Z]{4,4}[A-Z]{2,2}[0-9A-Z]{2,2}([0-9A-Z]{3,3})?)$"
+    },
+    "BaseOneRate" : {
+      "type" : "number"
+    },
+    "BranchAndFinancialInstitutionIdentification6" : {
+      "type" : "object",
+      "required" : [ "finInstnId" ],
+      "properties" : {
+        "brnchId" : {
+          "$ref" : "#/definitions/BranchData3"
+        },
+        "finInstnId" : {
+          "$ref" : "#/definitions/FinancialInstitutionIdentification18"
+        }
+      }
+    },
+    "BranchData3" : {
+      "type" : "object",
+      "properties" : {
+        "id" : {
+          "$ref" : "#/definitions/Max35Text"
+        },
+        "lei" : {
+          "$ref" : "#/definitions/LEIIdentifier"
+        },
+        "nm" : {
+          "$ref" : "#/definitions/Max140Text"
+        },
+        "pstlAdr" : {
+          "$ref" : "#/definitions/PostalAddress24"
+        }
+      }
+    },
+    "CashAccount38" : {
+      "type" : "object",
+      "required" : [ "id" ],
+      "properties" : {
+        "ccy" : {
+          "$ref" : "#/definitions/ActiveOrHistoricCurrencyCode"
+        },
+        "id" : {
+          "$ref" : "#/definitions/AccountIdentification4Choice"
+        },
+        "nm" : {
+          "$ref" : "#/definitions/Max70Text"
+        },
+        "prxy" : {
+          "$ref" : "#/definitions/ProxyAccountIdentification1"
+        },
+        "tp" : {
+          "$ref" : "#/definitions/CashAccountType2Choice"
+        }
+      }
+    },
+    "CashAccountType2Choice" : {
+      "type" : "object",
+      "properties" : {
+        "cd" : {
+          "$ref" : "#/definitions/ExternalCashAccountType1Code"
+        },
+        "prtry" : {
+          "$ref" : "#/definitions/Max35Text"
+        }
+      }
+    },
+    "CategoryPurpose1Choice" : {
+      "type" : "object",
+      "properties" : {
+        "cd" : {
+          "$ref" : "#/definitions/ExternalCategoryPurpose1Code"
+        },
+        "prtry" : {
+          "$ref" : "#/definitions/Max35Text"
+        }
+      }
+    },
+    "ChargeBearerType1Code" : {
+      "type" : "string",
+      "enum" : [ "DEBT", "CRED", "SHAR", "SLEV" ]
+    },
+    "ClearingSystemIdentification2Choice" : {
+      "type" : "object",
+      "properties" : {
+        "cd" : {
+          "$ref" : "#/definitions/ExternalClearingSystemIdentification1Code"
+        },
+        "prtry" : {
+          "$ref" : "#/definitions/Max35Text"
+        }
+      }
+    },
+    "ClearingSystemMemberIdentification2" : {
+      "type" : "object",
+      "required" : [ "mmbId" ],
+      "properties" : {
+        "clrSysId" : {
+          "$ref" : "#/definitions/ClearingSystemIdentification2Choice"
+        },
+        "mmbId" : {
+          "$ref" : "#/definitions/Max35Text"
+        }
+      }
+    },
+    "Contact4" : {
+      "type" : "object",
+      "properties" : {
+        "dept" : {
+          "$ref" : "#/definitions/Max70Text"
+        },
+        "emailAdr" : {
+          "$ref" : "#/definitions/Max2048Text"
+        },
+        "emailPurp" : {
+          "$ref" : "#/definitions/Max35Text"
+        },
+        "faxNb" : {
+          "$ref" : "#/definitions/PhoneNumber"
+        },
+        "jobTitl" : {
+          "$ref" : "#/definitions/Max35Text"
+        },
+        "mobNb" : {
+          "$ref" : "#/definitions/PhoneNumber"
+        },
+        "nm" : {
+          "$ref" : "#/definitions/Max140Text"
+        },
+        "nmPrfx" : {
+          "$ref" : "#/definitions/NamePrefix2Code"
+        },
+        "othr" : {
+          "type" : "array",
+          "items" : {
+            "$ref" : "#/definitions/OtherContact1"
+          },
+          "x-ing-type" : "array"
+        },
+        "phneNb" : {
+          "$ref" : "#/definitions/PhoneNumber"
+        },
+        "prefrdMtd" : {
+          "$ref" : "#/definitions/PreferredContactMethod1Code"
+        },
+        "rspnsblty" : {
+          "$ref" : "#/definitions/Max35Text"
+        }
+      }
+    },
+    "CountryCode" : {
+      "type" : "string",
+      "pattern" : "^([A-Z]{2,2})$"
+    },
+    "CreditDebitCode" : {
+      "type" : "string",
+      "enum" : [ "CRDT", "DBIT" ]
+    },
+    "CreditTransferMandateData1" : {
+      "type" : "object",
+      "properties" : {
+        "dtOfSgntr" : {
+          "$ref" : "#/definitions/ISODate"
+        },
+        "dtOfVrfctn" : {
+          "$ref" : "#/definitions/ISODateTime"
+        },
+        "elctrncSgntr" : {
+          "$ref" : "#/definitions/Max10KBinary"
+        },
+        "fnlPmtDt" : {
+          "$ref" : "#/definitions/ISODate"
+        },
+        "frqcy" : {
+          "$ref" : "#/definitions/Frequency36Choice"
+        },
+        "frstPmtDt" : {
+          "$ref" : "#/definitions/ISODate"
+        },
+        "mndtId" : {
+          "$ref" : "#/definitions/Max35Text"
+        },
+        "rsn" : {
+          "$ref" : "#/definitions/MandateSetupReason1Choice"
+        },
+        "tp" : {
+          "$ref" : "#/definitions/MandateTypeInformation2"
+        }
+      }
+    },
+    "CreditorReferenceInformation2" : {
+      "type" : "object",
+      "properties" : {
+        "ref" : {
+          "$ref" : "#/definitions/Max35Text"
+        },
+        "tp" : {
+          "$ref" : "#/definitions/CreditorReferenceType2"
+        }
+      }
+    },
+    "CreditorReferenceType1Choice" : {
+      "type" : "object",
+      "properties" : {
+        "cd" : {
+          "$ref" : "#/definitions/DocumentType3Code"
+        },
+        "prtry" : {
+          "$ref" : "#/definitions/Max35Text"
+        }
+      }
+    },
+    "CreditorReferenceType2" : {
+      "type" : "object",
+      "required" : [ "cdOrPrtry" ],
+      "properties" : {
+        "cdOrPrtry" : {
+          "$ref" : "#/definitions/CreditorReferenceType1Choice"
+        },
+        "issr" : {
+          "$ref" : "#/definitions/Max35Text"
+        }
+      }
+    },
+    "DateAndDateTime2Choice" : {
+      "type" : "object",
+      "properties" : {
+        "dt" : {
+          "$ref" : "#/definitions/ISODate"
+        },
+        "dtTm" : {
+          "$ref" : "#/definitions/ISODateTime"
+        }
+      }
+    },
+    "DateAndPlaceOfBirth1" : {
+      "type" : "object",
+      "required" : [ "birthDt", "cityOfBirth", "ctryOfBirth" ],
+      "properties" : {
+        "birthDt" : {
+          "$ref" : "#/definitions/ISODate"
+        },
+        "cityOfBirth" : {
+          "$ref" : "#/definitions/Max35Text"
+        },
+        "ctryOfBirth" : {
+          "$ref" : "#/definitions/CountryCode"
+        },
+        "prvcOfBirth" : {
+          "$ref" : "#/definitions/Max35Text"
+        }
+      }
+    },
+    "DatePeriod2" : {
+      "type" : "object",
+      "required" : [ "frDt", "toDt" ],
+      "properties" : {
+        "frDt" : {
+          "$ref" : "#/definitions/ISODate"
+        },
+        "toDt" : {
+          "$ref" : "#/definitions/ISODate"
+        }
+      }
+    },
+    "DecimalNumber" : {
+      "type" : "number"
+    },
+    "DiscountAmountAndType1" : {
+      "type" : "object",
+      "required" : [ "amt" ],
+      "properties" : {
+        "amt" : {
+          "$ref" : "#/definitions/ActiveOrHistoricCurrencyAndAmount"
+        },
+        "tp" : {
+          "$ref" : "#/definitions/DiscountAmountType1Choice"
+        }
+      }
+    },
+    "DiscountAmountType1Choice" : {
+      "type" : "object",
+      "properties" : {
+        "cd" : {
+          "$ref" : "#/definitions/ExternalDiscountAmountType1Code"
+        },
+        "prtry" : {
+          "$ref" : "#/definitions/Max35Text"
+        }
+      }
+    },
+    "DocumentAdjustment1" : {
+      "type" : "object",
+      "required" : [ "amt" ],
+      "properties" : {
+        "addtlInf" : {
+          "$ref" : "#/definitions/Max140Text"
+        },
+        "amt" : {
+          "$ref" : "#/definitions/ActiveOrHistoricCurrencyAndAmount"
+        },
+        "cdtDbtInd" : {
+          "$ref" : "#/definitions/CreditDebitCode"
+        },
+        "rsn" : {
+          "$ref" : "#/definitions/Max4Text"
+        }
+      }
+    },
+    "DocumentLineIdentification1" : {
+      "type" : "object",
+      "properties" : {
+        "nb" : {
+          "$ref" : "#/definitions/Max35Text"
+        },
+        "rltdDt" : {
+          "$ref" : "#/definitions/ISODate"
+        },
+        "tp" : {
+          "$ref" : "#/definitions/DocumentLineType1"
+        }
+      }
+    },
+    "DocumentLineInformation1" : {
+      "type" : "object",
+      "required" : [ "id" ],
+      "properties" : {
+        "amt" : {
+          "$ref" : "#/definitions/RemittanceAmount3"
+        },
+        "desc" : {
+          "$ref" : "#/definitions/Max2048Text"
+        },
+        "id" : {
+          "type" : "array",
+          "items" : {
+            "$ref" : "#/definitions/DocumentLineIdentification1"
+          },
+          "minItems" : 1,
+          "x-ing-type" : "array"
+        }
+      }
+    },
+    "DocumentLineType1" : {
+      "type" : "object",
+      "required" : [ "cdOrPrtry" ],
+      "properties" : {
+        "cdOrPrtry" : {
+          "$ref" : "#/definitions/DocumentLineType1Choice"
+        },
+        "issr" : {
+          "$ref" : "#/definitions/Max35Text"
+        }
+      }
+    },
+    "DocumentLineType1Choice" : {
+      "type" : "object",
+      "properties" : {
+        "cd" : {
+          "$ref" : "#/definitions/ExternalDocumentLineType1Code"
+        },
+        "prtry" : {
+          "$ref" : "#/definitions/Max35Text"
+        }
+      }
+    },
+    "DocumentType3Code" : {
+      "type" : "string",
+      "enum" : [ "RADM", "RPIN", "FXDR", "DISP", "PUOR", "SCOR" ]
+    },
+    "DocumentType6Code" : {
+      "type" : "string",
+      "enum" : [ "MSIN", "CNFA", "DNFA", "CINV", "CREN", "DEBN", "HIRI", "SBIN", "CMCN", "SOAC", "DISP", "BOLD", "VCHR", "AROI", "TSUT", "PUOR" ]
+    },
+    "EquivalentAmount2" : {
+      "type" : "object",
+      "required" : [ "amt", "ccyOfTrf" ],
+      "properties" : {
+        "amt" : {
+          "$ref" : "#/definitions/ActiveOrHistoricCurrencyAndAmount"
+        },
+        "ccyOfTrf" : {
+          "$ref" : "#/definitions/ActiveOrHistoricCurrencyCode"
+        }
+      }
+    },
+    "Exact2NumericText" : {
+      "type" : "string",
+      "pattern" : "^([0-9]{2,2})$"
+    },
+    "Exact4AlphaNumericText" : {
+      "type" : "string",
+      "pattern" : "^([0-9A-Za-z]{4,4})$"
+    },
+    "ExternalAccountIdentification1Code" : {
+      "type" : "string",
+      "minLength" : 1,
+      "maxLength" : 4
+    },
+    "ExternalCashAccountType1Code" : {
+      "type" : "string",
+      "minLength" : 1,
+      "maxLength" : 4
+    },
+    "ExternalCategoryPurpose1Code" : {
+      "type" : "string",
+      "minLength" : 1,
+      "maxLength" : 4
+    },
+    "ExternalClearingSystemIdentification1Code" : {
+      "type" : "string",
+      "minLength" : 1,
+      "maxLength" : 5
+    },
+    "ExternalDiscountAmountType1Code" : {
+      "type" : "string",
+      "minLength" : 1,
+      "maxLength" : 4
+    },
+    "ExternalDocumentLineType1Code" : {
+      "type" : "string",
+      "minLength" : 1,
+      "maxLength" : 4
+    },
+    "ExternalFinancialInstitutionIdentification1Code" : {
+      "type" : "string",
+      "minLength" : 1,
+      "maxLength" : 4
+    },
+    "ExternalGarnishmentType1Code" : {
+      "type" : "string",
+      "minLength" : 1,
+      "maxLength" : 4
+    },
+    "ExternalLocalInstrument1Code" : {
+      "type" : "string",
+      "minLength" : 1,
+      "maxLength" : 35
+    },
+    "ExternalMandateSetupReason1Code" : {
+      "type" : "string",
+      "minLength" : 1,
+      "maxLength" : 4
+    },
+    "ExternalOrganisationIdentification1Code" : {
+      "type" : "string",
+      "minLength" : 1,
+      "maxLength" : 4
+    },
+    "ExternalPersonIdentification1Code" : {
+      "type" : "string",
+      "minLength" : 1,
+      "maxLength" : 4
+    },
+    "ExternalProxyAccountType1Code" : {
+      "type" : "string",
+      "minLength" : 1,
+      "maxLength" : 4
+    },
+    "ExternalPurpose1Code" : {
+      "type" : "string",
+      "minLength" : 1,
+      "maxLength" : 4
+    },
+    "ExternalServiceLevel1Code" : {
+      "type" : "string",
+      "minLength" : 1,
+      "maxLength" : 4
+    },
+    "ExternalTaxAmountType1Code" : {
+      "type" : "string",
+      "minLength" : 1,
+      "maxLength" : 4
+    },
+    "FinancialIdentificationSchemeName1Choice" : {
+      "type" : "object",
+      "properties" : {
+        "cd" : {
+          "$ref" : "#/definitions/ExternalFinancialInstitutionIdentification1Code"
+        },
+        "prtry" : {
+          "$ref" : "#/definitions/Max35Text"
+        }
+      }
+    },
+    "FinancialInstitutionIdentification18" : {
+      "type" : "object",
+      "properties" : {
+        "bicfi" : {
+          "$ref" : "#/definitions/BICFIDec2014Identifier"
+        },
+        "clrSysMmbId" : {
+          "$ref" : "#/definitions/ClearingSystemMemberIdentification2"
+        },
+        "lei" : {
+          "$ref" : "#/definitions/LEIIdentifier"
+        },
+        "nm" : {
+          "$ref" : "#/definitions/Max140Text"
+        },
+        "othr" : {
+          "$ref" : "#/definitions/GenericFinancialIdentification1"
+        },
+        "pstlAdr" : {
+          "$ref" : "#/definitions/PostalAddress24"
+        }
+      }
+    },
+    "Frequency36Choice" : {
+      "type" : "object",
+      "properties" : {
+        "prd" : {
+          "$ref" : "#/definitions/FrequencyPeriod1"
+        },
+        "ptInTm" : {
+          "$ref" : "#/definitions/FrequencyAndMoment1"
+        },
+        "tp" : {
+          "$ref" : "#/definitions/Frequency6Code"
+        }
+      }
+    },
+    "Frequency6Code" : {
+      "type" : "string",
+      "enum" : [ "YEAR", "MNTH", "QURT", "MIAN", "WEEK", "DAIL", "ADHO", "INDA", "FRTN" ]
+    },
+    "FrequencyAndMoment1" : {
+      "type" : "object",
+      "required" : [ "ptInTm", "tp" ],
+      "properties" : {
+        "ptInTm" : {
+          "$ref" : "#/definitions/Exact2NumericText"
+        },
+        "tp" : {
+          "$ref" : "#/definitions/Frequency6Code"
+        }
+      }
+    },
+    "FrequencyPeriod1" : {
+      "type" : "object",
+      "required" : [ "cntPerPrd", "tp" ],
+      "properties" : {
+        "cntPerPrd" : {
+          "$ref" : "#/definitions/DecimalNumber"
+        },
+        "tp" : {
+          "$ref" : "#/definitions/Frequency6Code"
+        }
+      }
+    },
+    "Garnishment3" : {
+      "type" : "object",
+      "required" : [ "tp" ],
+      "properties" : {
+        "dt" : {
+          "$ref" : "#/definitions/ISODate"
+        },
+        "fmlyMdclInsrncInd" : {
+          "$ref" : "#/definitions/TrueFalseIndicator"
+        },
+        "grnshee" : {
+          "$ref" : "#/definitions/PartyIdentification135"
+        },
+        "grnshmtAdmstr" : {
+          "$ref" : "#/definitions/PartyIdentification135"
+        },
+        "mplyeeTermntnInd" : {
+          "$ref" : "#/definitions/TrueFalseIndicator"
+        },
+        "refNb" : {
+          "$ref" : "#/definitions/Max140Text"
+        },
+        "rmtdAmt" : {
+          "$ref" : "#/definitions/ActiveOrHistoricCurrencyAndAmount"
+        },
+        "tp" : {
+          "$ref" : "#/definitions/GarnishmentType1"
+        }
+      }
+    },
+    "GarnishmentType1" : {
+      "type" : "object",
+      "required" : [ "cdOrPrtry" ],
+      "properties" : {
+        "cdOrPrtry" : {
+          "$ref" : "#/definitions/GarnishmentType1Choice"
+        },
+        "issr" : {
+          "$ref" : "#/definitions/Max35Text"
+        }
+      }
+    },
+    "GarnishmentType1Choice" : {
+      "type" : "object",
+      "properties" : {
+        "cd" : {
+          "$ref" : "#/definitions/ExternalGarnishmentType1Code"
+        },
+        "prtry" : {
+          "$ref" : "#/definitions/Max35Text"
+        }
+      }
+    },
+    "GenericAccountIdentification1" : {
+      "type" : "object",
+      "required" : [ "id" ],
+      "properties" : {
+        "id" : {
+          "$ref" : "#/definitions/Max34Text"
+        },
+        "issr" : {
+          "$ref" : "#/definitions/Max35Text"
+        },
+        "schmeNm" : {
+          "$ref" : "#/definitions/AccountSchemeName1Choice"
+        }
+      }
+    },
+    "GenericFinancialIdentification1" : {
+      "type" : "object",
+      "required" : [ "id" ],
+      "properties" : {
+        "id" : {
+          "$ref" : "#/definitions/Max35Text"
+        },
+        "issr" : {
+          "$ref" : "#/definitions/Max35Text"
+        },
+        "schmeNm" : {
+          "$ref" : "#/definitions/FinancialIdentificationSchemeName1Choice"
+        }
+      }
+    },
+    "GenericIdentification30" : {
+      "type" : "object",
+      "required" : [ "id", "issr" ],
+      "properties" : {
+        "id" : {
+          "$ref" : "#/definitions/Exact4AlphaNumericText"
+        },
+        "issr" : {
+          "$ref" : "#/definitions/Max35Text"
+        },
+        "schmeNm" : {
+          "$ref" : "#/definitions/Max35Text"
+        }
+      }
+    },
+    "GenericOrganisationIdentification1" : {
+      "type" : "object",
+      "required" : [ "id" ],
+      "properties" : {
+        "id" : {
+          "$ref" : "#/definitions/Max35Text"
+        },
+        "issr" : {
+          "$ref" : "#/definitions/Max35Text"
+        },
+        "schmeNm" : {
+          "$ref" : "#/definitions/OrganisationIdentificationSchemeName1Choice"
+        }
+      }
+    },
+    "GenericPersonIdentification1" : {
+      "type" : "object",
+      "required" : [ "id" ],
+      "properties" : {
+        "id" : {
+          "$ref" : "#/definitions/Max35Text"
+        },
+        "issr" : {
+          "$ref" : "#/definitions/Max35Text"
+        },
+        "schmeNm" : {
+          "$ref" : "#/definitions/PersonIdentificationSchemeName1Choice"
+        }
+      }
+    },
+    "IBAN2007Identifier" : {
+      "type" : "string",
+      "pattern" : "^([A-Z]{2,2}[0-9]{2,2}[0-9A-Za-z]{1,30})$",
+      "example" : "NL08INGB0000000555"
+    },
+    "ISODate" : {
+      "type" : "string",
+      "format" : "date",
+      "example" : "2022-01-24"
+    },
+    "ISODateTime" : {
+      "type" : "string",
+      "format" : "date-time",
+      "example" : "2022-01-24T09:30:10.000+00:00"
+    },
+    "LEIIdentifier" : {
+      "type" : "string",
+      "pattern" : "^([0-9A-Z]{18,18}[0-9]{2,2})$"
+    },
+    "LocalInstrument2Choice" : {
+      "type" : "object",
+      "properties" : {
+        "cd" : {
+          "$ref" : "#/definitions/ExternalLocalInstrument1Code"
+        },
+        "prtry" : {
+          "$ref" : "#/definitions/Max35Text"
+        }
+      }
+    },
+    "MandateClassification1Choice" : {
+      "type" : "object",
+      "properties" : {
+        "cd" : {
+          "$ref" : "#/definitions/MandateClassification1Code"
+        },
+        "prtry" : {
+          "$ref" : "#/definitions/Max35Text"
+        }
+      }
+    },
+    "MandateClassification1Code" : {
+      "type" : "string",
+      "enum" : [ "FIXE", "USGB", "VARI" ]
+    },
+    "MandateSetupReason1Choice" : {
+      "type" : "object",
+      "properties" : {
+        "cd" : {
+          "$ref" : "#/definitions/ExternalMandateSetupReason1Code"
+        },
+        "prtry" : {
+          "$ref" : "#/definitions/Max70Text"
+        }
+      }
+    },
+    "MandateTypeInformation2" : {
+      "type" : "object",
+      "properties" : {
+        "clssfctn" : {
+          "$ref" : "#/definitions/MandateClassification1Choice"
+        },
+        "ctgyPurp" : {
+          "$ref" : "#/definitions/CategoryPurpose1Choice"
+        },
+        "lclInstrm" : {
+          "$ref" : "#/definitions/LocalInstrument2Choice"
+        },
+        "svcLvl" : {
+          "$ref" : "#/definitions/ServiceLevel8Choice"
+        }
+      }
+    },
+    "Max10KBinary" : {
+      "type" : "string",
+      "minLength" : 1,
+      "maxLength" : 10240
+    },
+    "Max128Text" : {
+      "type" : "string",
+      "minLength" : 1,
+      "maxLength" : 128
+    },
+    "Max140Text" : {
+      "type" : "string",
+      "minLength" : 1,
+      "maxLength" : 140
+    },
+    "Max15NumericText" : {
+      "type" : "string",
+      "pattern" : "^([0-9]{1,15})$"
+    },
+    "Max16Text" : {
+      "type" : "string",
+      "minLength" : 1,
+      "maxLength" : 16
+    },
+    "Max2048Text" : {
+      "type" : "string",
+      "minLength" : 1,
+      "maxLength" : 2048
+    },
+    "Max34Text" : {
+      "type" : "string",
+      "minLength" : 1,
+      "maxLength" : 34
+    },
+    "Max350Text" : {
+      "type" : "string",
+      "minLength" : 1,
+      "maxLength" : 350
+    },
+    "Max35Text" : {
+      "type" : "string",
+      "minLength" : 1,
+      "maxLength" : 35
+    },
+    "Max4Text" : {
+      "type" : "string",
+      "minLength" : 1,
+      "maxLength" : 4
+    },
+    "Max70Text" : {
+      "type" : "string",
+      "minLength" : 1,
+      "maxLength" : 70
+    },
+    "NamePrefix2Code" : {
+      "type" : "string",
+      "enum" : [ "DOCT", "MADM", "MISS", "MIST", "MIKS" ]
+    },
+    "Number" : {
+      "type" : "number"
+    },
+    "OrganisationIdentification29" : {
+      "type" : "object",
+      "properties" : {
+        "anyBIC" : {
+          "$ref" : "#/definitions/AnyBICDec2014Identifier"
+        },
+        "lei" : {
+          "$ref" : "#/definitions/LEIIdentifier"
+        },
+        "othr" : {
+          "type" : "array",
+          "items" : {
+            "$ref" : "#/definitions/GenericOrganisationIdentification1"
+          },
+          "x-ing-type" : "array"
+        }
+      }
+    },
+    "OrganisationIdentificationSchemeName1Choice" : {
+      "type" : "object",
+      "properties" : {
+        "cd" : {
+          "$ref" : "#/definitions/ExternalOrganisationIdentification1Code"
+        },
+        "prtry" : {
+          "$ref" : "#/definitions/Max35Text"
+        }
+      }
+    },
+    "OtherContact1" : {
+      "type" : "object",
+      "required" : [ "chanlTp" ],
+      "properties" : {
+        "chanlTp" : {
+          "$ref" : "#/definitions/Max4Text"
+        },
+        "id" : {
+          "$ref" : "#/definitions/Max128Text"
+        }
+      }
+    },
+    "Party38Choice" : {
+      "type" : "object",
+      "properties" : {
+        "orgId" : {
+          "$ref" : "#/definitions/OrganisationIdentification29"
+        },
+        "prvtId" : {
+          "$ref" : "#/definitions/PersonIdentification13"
+        }
+      }
+    },
+    "PartyIdentification135" : {
+      "type" : "object",
+      "properties" : {
+        "ctctDtls" : {
+          "$ref" : "#/definitions/Contact4"
+        },
+        "ctryOfRes" : {
+          "$ref" : "#/definitions/CountryCode"
+        },
+        "id" : {
+          "$ref" : "#/definitions/Party38Choice"
+        },
+        "nm" : {
+          "$ref" : "#/definitions/Max140Text"
+        },
+        "pstlAdr" : {
+          "$ref" : "#/definitions/PostalAddress24"
+        }
+      }
+    },
+    "PercentageRate" : {
+      "type" : "number"
+    },
+    "PersonIdentification13" : {
+      "type" : "object",
+      "properties" : {
+        "dtAndPlcOfBirth" : {
+          "$ref" : "#/definitions/DateAndPlaceOfBirth1"
+        },
+        "othr" : {
+          "type" : "array",
+          "items" : {
+            "$ref" : "#/definitions/GenericPersonIdentification1"
+          },
+          "x-ing-type" : "array"
+        }
+      }
+    },
+    "PersonIdentificationSchemeName1Choice" : {
+      "type" : "object",
+      "properties" : {
+        "cd" : {
+          "$ref" : "#/definitions/ExternalPersonIdentification1Code"
+        },
+        "prtry" : {
+          "$ref" : "#/definitions/Max35Text"
+        }
+      }
+    },
+    "PhoneNumber" : {
+      "type" : "string",
+      "pattern" : "^(\\+[0-9]{1,3}\\-[\\(-\\)\\+\\-0-9]{1,30})$"
+    },
+    "PostalAddress24" : {
+      "type" : "object",
+      "properties" : {
+        "adrLine" : {
+          "type" : "array",
+          "items" : {
+            "$ref" : "#/definitions/Max70Text"
+          },
+          "x-ing-type" : "array"
+        },
+        "adrTp" : {
+          "$ref" : "#/definitions/AddressType3Choice"
+        },
+        "bldgNb" : {
+          "$ref" : "#/definitions/Max16Text"
+        },
+        "bldgNm" : {
+          "$ref" : "#/definitions/Max35Text"
+        },
+        "ctry" : {
+          "$ref" : "#/definitions/CountryCode"
+        },
+        "ctrySubDvsn" : {
+          "$ref" : "#/definitions/Max35Text"
+        },
+        "dept" : {
+          "$ref" : "#/definitions/Max70Text"
+        },
+        "dstrctNm" : {
+          "$ref" : "#/definitions/Max35Text"
+        },
+        "flr" : {
+          "$ref" : "#/definitions/Max70Text"
+        },
+        "pstBx" : {
+          "$ref" : "#/definitions/Max16Text"
+        },
+        "pstcd" : {
+          "$ref" : "#/definitions/Max16Text"
+        },
+        "room" : {
+          "$ref" : "#/definitions/Max70Text"
+        },
+        "strtNm" : {
+          "$ref" : "#/definitions/Max70Text"
+        },
+        "subDept" : {
+          "$ref" : "#/definitions/Max70Text"
+        },
+        "twnLctnNm" : {
+          "$ref" : "#/definitions/Max35Text"
+        },
+        "twnNm" : {
+          "$ref" : "#/definitions/Max35Text"
+        }
+      }
+    },
+    "PreferredContactMethod1Code" : {
+      "type" : "string",
+      "enum" : [ "LETT", "MAIL", "PHON", "FAXX", "CELL" ]
+    },
+    "Priority2Code" : {
+      "type" : "string",
+      "enum" : [ "HIGH", "NORM" ]
+    },
+    "ProxyAccountIdentification1" : {
+      "type" : "object",
+      "required" : [ "id" ],
+      "properties" : {
+        "id" : {
+          "$ref" : "#/definitions/Max2048Text"
+        },
+        "tp" : {
+          "$ref" : "#/definitions/ProxyAccountType1Choice"
+        }
+      }
+    },
+    "ProxyAccountType1Choice" : {
+      "type" : "object",
+      "properties" : {
+        "cd" : {
+          "$ref" : "#/definitions/ExternalProxyAccountType1Code"
+        },
+        "prtry" : {
+          "$ref" : "#/definitions/Max35Text"
+        }
+      }
+    },
+    "Purpose2Choice" : {
+      "type" : "object",
+      "properties" : {
+        "cd" : {
+          "$ref" : "#/definitions/ExternalPurpose1Code"
+        },
+        "prtry" : {
+          "$ref" : "#/definitions/Max35Text"
+        }
+      }
+    },
+    "ReferredDocumentInformation7" : {
+      "type" : "object",
+      "properties" : {
+        "lineDtls" : {
+          "type" : "array",
+          "items" : {
+            "$ref" : "#/definitions/DocumentLineInformation1"
+          },
+          "x-ing-type" : "array"
+        },
+        "nb" : {
+          "$ref" : "#/definitions/Max35Text"
+        },
+        "rltdDt" : {
+          "$ref" : "#/definitions/ISODate"
+        },
+        "tp" : {
+          "$ref" : "#/definitions/ReferredDocumentType4"
+        }
+      }
+    },
+    "ReferredDocumentType3Choice" : {
+      "type" : "object",
+      "properties" : {
+        "cd" : {
+          "$ref" : "#/definitions/DocumentType6Code"
+        },
+        "prtry" : {
+          "$ref" : "#/definitions/Max35Text"
+        }
+      }
+    },
+    "ReferredDocumentType4" : {
+      "type" : "object",
+      "required" : [ "cdOrPrtry" ],
+      "properties" : {
+        "cdOrPrtry" : {
+          "$ref" : "#/definitions/ReferredDocumentType3Choice"
+        },
+        "issr" : {
+          "$ref" : "#/definitions/Max35Text"
+        }
+      }
+    },
+    "RemittanceAmount2" : {
+      "type" : "object",
+      "properties" : {
+        "adjstmntAmtAndRsn" : {
+          "type" : "array",
+          "items" : {
+            "$ref" : "#/definitions/DocumentAdjustment1"
+          },
+          "x-ing-type" : "array"
+        },
+        "cdtNoteAmt" : {
+          "$ref" : "#/definitions/ActiveOrHistoricCurrencyAndAmount"
+        },
+        "dscntApldAmt" : {
+          "type" : "array",
+          "items" : {
+            "$ref" : "#/definitions/DiscountAmountAndType1"
+          },
+          "x-ing-type" : "array"
+        },
+        "duePyblAmt" : {
+          "$ref" : "#/definitions/ActiveOrHistoricCurrencyAndAmount"
+        },
+        "rmtdAmt" : {
+          "$ref" : "#/definitions/ActiveOrHistoricCurrencyAndAmount"
+        },
+        "taxAmt" : {
+          "type" : "array",
+          "items" : {
+            "$ref" : "#/definitions/TaxAmountAndType1"
+          },
+          "x-ing-type" : "array"
+        }
+      }
+    },
+    "RemittanceAmount3" : {
+      "type" : "object",
+      "properties" : {
+        "adjstmntAmtAndRsn" : {
+          "type" : "array",
+          "items" : {
+            "$ref" : "#/definitions/DocumentAdjustment1"
+          },
+          "x-ing-type" : "array"
+        },
+        "cdtNoteAmt" : {
+          "$ref" : "#/definitions/ActiveOrHistoricCurrencyAndAmount"
+        },
+        "dscntApldAmt" : {
+          "type" : "array",
+          "items" : {
+            "$ref" : "#/definitions/DiscountAmountAndType1"
+          },
+          "x-ing-type" : "array"
+        },
+        "duePyblAmt" : {
+          "$ref" : "#/definitions/ActiveOrHistoricCurrencyAndAmount"
+        },
+        "rmtdAmt" : {
+          "$ref" : "#/definitions/ActiveOrHistoricCurrencyAndAmount"
+        },
+        "taxAmt" : {
+          "type" : "array",
+          "items" : {
+            "$ref" : "#/definitions/TaxAmountAndType1"
+          },
+          "x-ing-type" : "array"
+        }
+      }
+    },
+    "RemittanceInformation16" : {
+      "type" : "object",
+      "properties" : {
+        "strd" : {
+          "type" : "array",
+          "items" : {
+            "$ref" : "#/definitions/StructuredRemittanceInformation16"
+          },
+          "x-ing-type" : "array"
+        },
+        "ustrd" : {
+          "type" : "array",
+          "items" : {
+            "$ref" : "#/definitions/Max140Text"
+          },
+          "x-ing-type" : "array"
+        }
+      }
+    },
+    "ServiceLevel8Choice" : {
+      "type" : "object",
+      "properties" : {
+        "cd" : {
+          "$ref" : "#/definitions/ExternalServiceLevel1Code"
+        },
+        "prtry" : {
+          "$ref" : "#/definitions/Max35Text"
+        }
+      }
+    },
+    "StructuredRemittanceInformation16" : {
+      "type" : "object",
+      "properties" : {
+        "addtlRmtInf" : {
+          "type" : "array",
+          "items" : {
+            "$ref" : "#/definitions/Max140Text"
+          },
+          "x-ing-type" : "array"
+        },
+        "cdtrRefInf" : {
+          "$ref" : "#/definitions/CreditorReferenceInformation2"
+        },
+        "grnshmtRmt" : {
+          "$ref" : "#/definitions/Garnishment3"
+        },
+        "invcee" : {
+          "$ref" : "#/definitions/PartyIdentification135"
+        },
+        "invcr" : {
+          "$ref" : "#/definitions/PartyIdentification135"
+        },
+        "rfrdDocAmt" : {
+          "$ref" : "#/definitions/RemittanceAmount2"
+        },
+        "rfrdDocInf" : {
+          "type" : "array",
+          "items" : {
+            "$ref" : "#/definitions/ReferredDocumentInformation7"
+          },
+          "x-ing-type" : "array"
+        },
+        "taxRmt" : {
+          "$ref" : "#/definitions/TaxInformation7"
+        }
+      }
+    },
+    "SupplementaryData2" : {
+      "type" : "object",
+      "required" : [ "envlp" ],
+      "properties" : {
+        "envlp" : {
+          "$ref" : "#/definitions/SupplementaryDataEnvelope2"
+        },
+        "plcAndNm" : {
+          "$ref" : "#/definitions/Max350Text"
+        }
+      }
+    },
+    "TaxAmount2" : {
+      "type" : "object",
+      "properties" : {
+        "dtls" : {
+          "type" : "array",
+          "items" : {
+            "$ref" : "#/definitions/TaxRecordDetails2"
+          },
+          "x-ing-type" : "array"
+        },
+        "rate" : {
+          "$ref" : "#/definitions/PercentageRate"
+        },
+        "taxblBaseAmt" : {
+          "$ref" : "#/definitions/ActiveOrHistoricCurrencyAndAmount"
+        },
+        "ttlAmt" : {
+          "$ref" : "#/definitions/ActiveOrHistoricCurrencyAndAmount"
+        }
+      }
+    },
+    "TaxAmountAndType1" : {
+      "type" : "object",
+      "required" : [ "amt" ],
+      "properties" : {
+        "amt" : {
+          "$ref" : "#/definitions/ActiveOrHistoricCurrencyAndAmount"
+        },
+        "tp" : {
+          "$ref" : "#/definitions/TaxAmountType1Choice"
+        }
+      }
+    },
+    "TaxAmountType1Choice" : {
+      "type" : "object",
+      "properties" : {
+        "cd" : {
+          "$ref" : "#/definitions/ExternalTaxAmountType1Code"
+        },
+        "prtry" : {
+          "$ref" : "#/definitions/Max35Text"
+        }
+      }
+    },
+    "TaxAuthorisation1" : {
+      "type" : "object",
+      "properties" : {
+        "nm" : {
+          "$ref" : "#/definitions/Max140Text"
+        },
+        "titl" : {
+          "$ref" : "#/definitions/Max35Text"
+        }
+      }
+    },
+    "TaxInformation7" : {
+      "type" : "object",
+      "properties" : {
+        "admstnZone" : {
+          "$ref" : "#/definitions/Max35Text"
+        },
+        "cdtr" : {
+          "$ref" : "#/definitions/TaxParty1"
+        },
+        "dbtr" : {
+          "$ref" : "#/definitions/TaxParty2"
+        },
+        "dt" : {
+          "$ref" : "#/definitions/ISODate"
+        },
+        "mtd" : {
+          "$ref" : "#/definitions/Max35Text"
+        },
+        "rcrd" : {
+          "type" : "array",
+          "items" : {
+            "$ref" : "#/definitions/TaxRecord2"
+          },
+          "x-ing-type" : "array"
+        },
+        "refNb" : {
+          "$ref" : "#/definitions/Max140Text"
+        },
+        "seqNb" : {
+          "$ref" : "#/definitions/Number"
+        },
+        "ttlTaxAmt" : {
+          "$ref" : "#/definitions/ActiveOrHistoricCurrencyAndAmount"
+        },
+        "ttlTaxblBaseAmt" : {
+          "$ref" : "#/definitions/ActiveOrHistoricCurrencyAndAmount"
+        },
+        "ultmtDbtr" : {
+          "$ref" : "#/definitions/TaxParty2"
+        }
+      }
+    },
+    "TaxParty1" : {
+      "type" : "object",
+      "properties" : {
+        "regnId" : {
+          "$ref" : "#/definitions/Max35Text"
+        },
+        "taxId" : {
+          "$ref" : "#/definitions/Max35Text"
+        },
+        "taxTp" : {
+          "$ref" : "#/definitions/Max35Text"
+        }
+      }
+    },
+    "TaxParty2" : {
+      "type" : "object",
+      "properties" : {
+        "authstn" : {
+          "$ref" : "#/definitions/TaxAuthorisation1"
+        },
+        "regnId" : {
+          "$ref" : "#/definitions/Max35Text"
+        },
+        "taxId" : {
+          "$ref" : "#/definitions/Max35Text"
+        },
+        "taxTp" : {
+          "$ref" : "#/definitions/Max35Text"
+        }
+      }
+    },
+    "TaxPeriod2" : {
+      "type" : "object",
+      "properties" : {
+        "frToDt" : {
+          "$ref" : "#/definitions/DatePeriod2"
+        },
+        "tp" : {
+          "$ref" : "#/definitions/TaxRecordPeriod1Code"
+        },
+        "yr" : {
+          "$ref" : "#/definitions/ISODate"
+        }
+      }
+    },
+    "TaxRecord2" : {
+      "type" : "object",
+      "properties" : {
+        "addtlInf" : {
+          "$ref" : "#/definitions/Max140Text"
+        },
+        "certId" : {
+          "$ref" : "#/definitions/Max35Text"
+        },
+        "ctgy" : {
+          "$ref" : "#/definitions/Max35Text"
+        },
+        "ctgyDtls" : {
+          "$ref" : "#/definitions/Max35Text"
+        },
+        "dbtrSts" : {
+          "$ref" : "#/definitions/Max35Text"
+        },
+        "frmsCd" : {
+          "$ref" : "#/definitions/Max35Text"
+        },
+        "prd" : {
+          "$ref" : "#/definitions/TaxPeriod2"
+        },
+        "taxAmt" : {
+          "$ref" : "#/definitions/TaxAmount2"
+        },
+        "tp" : {
+          "$ref" : "#/definitions/Max35Text"
+        }
+      }
+    },
+    "TaxRecordDetails2" : {
+      "type" : "object",
+      "required" : [ "amt" ],
+      "properties" : {
+        "amt" : {
+          "$ref" : "#/definitions/ActiveOrHistoricCurrencyAndAmount"
+        },
+        "prd" : {
+          "$ref" : "#/definitions/TaxPeriod2"
+        }
+      }
+    },
+    "TaxRecordPeriod1Code" : {
+      "type" : "string",
+      "enum" : [ "MM01", "MM02", "MM03", "MM04", "MM05", "MM06", "MM07", "MM08", "MM09", "MM10", "MM11", "MM12", "QTR1", "QTR2", "QTR3", "QTR4", "HLF1", "HLF2" ]
+    },
+    "TrueFalseIndicator" : {
+      "type" : "boolean"
+    },
+    "UUIDv4Identifier" : {
+      "type" : "string",
+      "pattern" : "^([0-9a-f]{8,8}\\-[0-9a-f]{4,4}\\-4[0-9a-f]{3,3}\\-[8-9a-b][0-9a-f]{3,3}\\-[0-9a-f]{12,12})$"
+    },
+    "ActiveCurrencyAndAmount" : {
+      "type" : "object",
+      "required" : [ "ccy", "value" ],
+      "properties" : {
+        "value" : {
+          "$ref" : "#/definitions/ActiveCurrencyAndAmount_SimpleType"
+        },
+        "ccy" : {
+          "$ref" : "#/definitions/ActiveCurrencyCode"
+        }
+      }
+    },
+    "ActiveCurrencyAndAmount_SimpleType" : {
+      "type" : "number",
+      "minimum" : 0
+    },
+    "ActiveCurrencyCode" : {
+      "type" : "string",
+      "pattern" : "^([A-Z]{3,3})$"
+    },
+    "AmendmentInformationDetails13" : {
+      "type" : "object",
+      "properties" : {
+        "orgnlCdtrAgt" : {
+          "$ref" : "#/definitions/BranchAndFinancialInstitutionIdentification6"
+        },
+        "orgnlCdtrAgtAcct" : {
+          "$ref" : "#/definitions/CashAccount38"
+        },
+        "orgnlCdtrSchmeId" : {
+          "$ref" : "#/definitions/PartyIdentification135"
+        },
+        "orgnlDbtr" : {
+          "$ref" : "#/definitions/PartyIdentification135"
+        },
+        "orgnlDbtrAcct" : {
+          "$ref" : "#/definitions/CashAccount38"
+        },
+        "orgnlDbtrAgt" : {
+          "$ref" : "#/definitions/BranchAndFinancialInstitutionIdentification6"
+        },
+        "orgnlDbtrAgtAcct" : {
+          "$ref" : "#/definitions/CashAccount38"
+        },
+        "orgnlFnlColltnDt" : {
+          "$ref" : "#/definitions/ISODate"
+        },
+        "orgnlFrqcy" : {
+          "$ref" : "#/definitions/Frequency36Choice"
+        },
+        "orgnlMndtId" : {
+          "$ref" : "#/definitions/Max35Text"
+        },
+        "orgnlRsn" : {
+          "$ref" : "#/definitions/MandateSetupReason1Choice"
+        },
+        "orgnlTrckgDays" : {
+          "$ref" : "#/definitions/Exact2NumericText"
+        }
+      }
+    },
+    "Charges7" : {
+      "type" : "object",
+      "required" : [ "agt", "amt" ],
+      "properties" : {
+        "agt" : {
+          "$ref" : "#/definitions/BranchAndFinancialInstitutionIdentification6"
+        },
+        "amt" : {
+          "$ref" : "#/definitions/ActiveOrHistoricCurrencyAndAmount"
+        }
+      }
+    },
+    "ClearingChannel2Code" : {
+      "type" : "string",
+      "enum" : [ "RTGS", "RTNS", "MPNS", "BOOK" ]
+    },
+    "ClearingSystemIdentification3Choice" : {
+      "type" : "object",
+      "properties" : {
+        "cd" : {
+          "$ref" : "#/definitions/ExternalCashClearingSystem1Code"
+        },
+        "prtry" : {
+          "$ref" : "#/definitions/Max35Text"
+        }
+      }
+    },
+    "CurrencyExchange13" : {
+      "type" : "object",
+      "required" : [ "srcCcy", "trgtCcy", "xchgRate" ],
+      "properties" : {
+        "srcCcy" : {
+          "$ref" : "#/definitions/ActiveCurrencyCode"
+        },
+        "trgtCcy" : {
+          "$ref" : "#/definitions/ActiveCurrencyCode"
+        },
+        "unitCcy" : {
+          "$ref" : "#/definitions/ActiveCurrencyCode"
+        },
+        "xchgRate" : {
+          "$ref" : "#/definitions/BaseOneRate"
+        }
+      }
+    },
+    "ExternalCashClearingSystem1Code" : {
+      "type" : "string",
+      "minLength" : 1,
+      "maxLength" : 3
+    },
+    "ExternalPaymentGroupStatus1Code" : {
+      "type" : "string",
+      "minLength" : 1,
+      "maxLength" : 4,
+      "description" : "ISO status of the GroupHeader (File/Message)",
+      "example" : "RJCT"
+    },
+    "ExternalPaymentTransactionStatus1Code" : {
+      "type" : "string",
+      "minLength" : 1,
+      "maxLength" : 4,
+      "description" : "ISO status of the Order or Transaction",
+      "example" : "ACCC"
+    },
+    "ExternalStatusReason1Code" : {
+      "type" : "string",
+      "minLength" : 1,
+      "maxLength" : 4
+    },
+    "MandateRelatedData1Choice" : {
+      "type" : "object",
+      "properties" : {
+        "cdtTrfMndt" : {
+          "$ref" : "#/definitions/CreditTransferMandateData1"
+        },
+        "drctDbtMndt" : {
+          "$ref" : "#/definitions/MandateRelatedInformation14"
+        }
+      }
+    },
+    "MandateRelatedInformation14" : {
+      "type" : "object",
+      "properties" : {
+        "amdmntInd" : {
+          "$ref" : "#/definitions/TrueFalseIndicator"
+        },
+        "amdmntInfDtls" : {
+          "$ref" : "#/definitions/AmendmentInformationDetails13"
+        },
+        "dtOfSgntr" : {
+          "$ref" : "#/definitions/ISODate"
+        },
+        "elctrncSgntr" : {
+          "$ref" : "#/definitions/Max1025Text"
+        },
+        "fnlColltnDt" : {
+          "$ref" : "#/definitions/ISODate"
+        },
+        "frqcy" : {
+          "$ref" : "#/definitions/Frequency36Choice"
+        },
+        "frstColltnDt" : {
+          "$ref" : "#/definitions/ISODate"
+        },
+        "mndtId" : {
+          "$ref" : "#/definitions/Max35Text"
+        },
+        "rsn" : {
+          "$ref" : "#/definitions/MandateSetupReason1Choice"
+        },
+        "trckgDays" : {
+          "$ref" : "#/definitions/Exact2NumericText"
+        }
+      }
+    },
+    "Max1025Text" : {
+      "type" : "string",
+      "minLength" : 1,
+      "maxLength" : 1025
+    },
+    "Max105Text" : {
+      "type" : "string",
+      "minLength" : 1,
+      "maxLength" : 105
+    },
+    "NumberOfTransactionsPerStatus5" : {
+      "type" : "object",
+      "required" : [ "dtldNbOfTxs", "dtldSts" ],
+      "properties" : {
+        "dtldCtrlSum" : {
+          "$ref" : "#/definitions/DecimalNumber"
+        },
+        "dtldNbOfTxs" : {
+          "$ref" : "#/definitions/Max15NumericText"
+        },
+        "dtldSts" : {
+          "$ref" : "#/definitions/ExternalPaymentTransactionStatus1Code"
+        }
+      }
+    },
+    "OriginalGroupHeader17" : {
+      "type" : "object",
+      "required" : [ "orgnlMsgId", "orgnlMsgNmId" ],
+      "properties" : {
+        "grpSts" : {
+          "$ref" : "#/definitions/ExternalPaymentGroupStatus1Code"
+        },
+        "nbOfTxsPerSts" : {
+          "type" : "array",
+          "items" : {
+            "$ref" : "#/definitions/NumberOfTransactionsPerStatus5"
+          },
+          "x-ing-type" : "array"
+        },
+        "orgnlCreDtTm" : {
+          "$ref" : "#/definitions/ISODateTime"
+        },
+        "orgnlCtrlSum" : {
+          "$ref" : "#/definitions/DecimalNumber"
+        },
+        "orgnlMsgId" : {
+          "$ref" : "#/definitions/Max35Text"
+        },
+        "orgnlMsgNmId" : {
+          "$ref" : "#/definitions/Max35Text"
+        },
+        "orgnlNbOfTxs" : {
+          "$ref" : "#/definitions/Max15NumericText"
+        },
+        "stsRsnInf" : {
+          "type" : "array",
+          "items" : {
+            "$ref" : "#/definitions/StatusReasonInformation12"
+          },
+          "x-ing-type" : "array"
+        }
+      }
+    },
+    "OriginalPaymentInstruction38" : {
+      "type" : "object",
+      "required" : [ "orgnlPmtInfId" ],
+      "properties" : {
+        "nbOfTxsPerSts" : {
+          "type" : "array",
+          "items" : {
+            "$ref" : "#/definitions/NumberOfTransactionsPerStatus5"
+          },
+          "x-ing-type" : "array"
+        },
+        "orgnlCtrlSum" : {
+          "$ref" : "#/definitions/DecimalNumber"
+        },
+        "orgnlNbOfTxs" : {
+          "$ref" : "#/definitions/Max15NumericText"
+        },
+        "orgnlPmtInfId" : {
+          "$ref" : "#/definitions/Max35Text"
+        },
+        "pmtInfSts" : {
+          "$ref" : "#/definitions/ExternalPaymentTransactionStatus1Code"
+        },
+        "stsRsnInf" : {
+          "type" : "array",
+          "items" : {
+            "$ref" : "#/definitions/StatusReasonInformation12"
+          },
+          "x-ing-type" : "array"
+        },
+        "txInfAndSts" : {
+          "type" : "array",
+          "items" : {
+            "$ref" : "#/definitions/PaymentTransaction126"
+          },
+          "x-ing-type" : "array"
+        }
+      }
+    },
+    "OriginalTransactionReference31" : {
+      "type" : "object",
+      "properties" : {
+        "amt" : {
+          "$ref" : "#/definitions/AmountType4Choice"
+        },
+        "cdtr" : {
+          "$ref" : "#/definitions/Party40Choice"
+        },
+        "cdtrAcct" : {
+          "$ref" : "#/definitions/CashAccount38"
+        },
+        "cdtrAgt" : {
+          "$ref" : "#/definitions/BranchAndFinancialInstitutionIdentification6"
+        },
+        "cdtrAgtAcct" : {
+          "$ref" : "#/definitions/CashAccount38"
+        },
+        "cdtrSchmeId" : {
+          "$ref" : "#/definitions/PartyIdentification135"
+        },
+        "dbtr" : {
+          "$ref" : "#/definitions/Party40Choice"
+        },
+        "dbtrAcct" : {
+          "$ref" : "#/definitions/CashAccount38"
+        },
+        "dbtrAgt" : {
+          "$ref" : "#/definitions/BranchAndFinancialInstitutionIdentification6"
+        },
+        "dbtrAgtAcct" : {
+          "$ref" : "#/definitions/CashAccount38"
+        },
+        "intrBkSttlmAmt" : {
+          "$ref" : "#/definitions/ActiveOrHistoricCurrencyAndAmount"
+        },
+        "intrBkSttlmDt" : {
+          "$ref" : "#/definitions/ISODate"
+        },
+        "mndtRltdInf" : {
+          "$ref" : "#/definitions/MandateRelatedData1Choice"
+        },
+        "pmtMtd" : {
+          "$ref" : "#/definitions/PaymentMethod4Code"
+        },
+        "pmtTpInf" : {
+          "$ref" : "#/definitions/PaymentTypeInformation27"
+        },
+        "purp" : {
+          "$ref" : "#/definitions/Purpose2Choice"
+        },
+        "reqdColltnDt" : {
+          "$ref" : "#/definitions/ISODate"
+        },
+        "reqdExctnDt" : {
+          "$ref" : "#/definitions/DateAndDateTime2Choice"
+        },
+        "rmtInf" : {
+          "$ref" : "#/definitions/RemittanceInformation16"
+        },
+        "sttlmInf" : {
+          "$ref" : "#/definitions/SettlementInstruction7"
+        },
+        "ultmtCdtr" : {
+          "$ref" : "#/definitions/Party40Choice"
+        },
+        "ultmtDbtr" : {
+          "$ref" : "#/definitions/Party40Choice"
+        }
+      }
+    },
+    "Party40Choice" : {
+      "type" : "object",
+      "properties" : {
+        "agt" : {
+          "$ref" : "#/definitions/BranchAndFinancialInstitutionIdentification6"
+        },
+        "pty" : {
+          "$ref" : "#/definitions/PartyIdentification135"
+        }
+      }
+    },
+    "PaymentMethod4Code" : {
+      "type" : "string",
+      "enum" : [ "CHK", "TRF", "DD", "TRA" ]
+    },
+    "PaymentTransaction126" : {
+      "type" : "object",
+      "properties" : {
+        "accptncDtTm" : {
+          "$ref" : "#/definitions/ISODateTime"
+        },
+        "acctSvcrRef" : {
+          "$ref" : "#/definitions/Max35Text"
+        },
+        "chrgsInf" : {
+          "type" : "array",
+          "items" : {
+            "$ref" : "#/definitions/Charges7"
+          },
+          "x-ing-type" : "array"
+        },
+        "clrSysRef" : {
+          "$ref" : "#/definitions/Max35Text"
+        },
+        "orgnlEndToEndId" : {
+          "$ref" : "#/definitions/Max35Text"
+        },
+        "orgnlInstrId" : {
+          "$ref" : "#/definitions/Max35Text"
+        },
+        "orgnlTxRef" : {
+          "$ref" : "#/definitions/OriginalTransactionReference31"
+        },
+        "orgnlUETR" : {
+          "$ref" : "#/definitions/UUIDv4Identifier"
+        },
+        "splmtryData" : {
+          "type" : "array",
+          "items" : {
+            "$ref" : "#/definitions/SupplementaryData2"
+          },
+          "x-ing-type" : "array"
+        },
+        "stsId" : {
+          "$ref" : "#/definitions/Max35Text"
+        },
+        "stsRsnInf" : {
+          "type" : "array",
+          "items" : {
+            "$ref" : "#/definitions/StatusReasonInformation12"
+          },
+          "x-ing-type" : "array"
+        },
+        "trckrData" : {
+          "$ref" : "#/definitions/TrackerData1"
+        },
+        "txSts" : {
+          "$ref" : "#/definitions/ExternalPaymentTransactionStatus1Code"
+        }
+      }
+    },
+    "PaymentTypeInformation27" : {
+      "type" : "object",
+      "properties" : {
+        "clrChanl" : {
+          "$ref" : "#/definitions/ClearingChannel2Code"
+        },
+        "ctgyPurp" : {
+          "$ref" : "#/definitions/CategoryPurpose1Choice"
+        },
+        "instrPrty" : {
+          "$ref" : "#/definitions/Priority2Code"
+        },
+        "lclInstrm" : {
+          "$ref" : "#/definitions/LocalInstrument2Choice"
+        },
+        "seqTp" : {
+          "$ref" : "#/definitions/SequenceType3Code"
+        },
+        "svcLvl" : {
+          "type" : "array",
+          "items" : {
+            "$ref" : "#/definitions/ServiceLevel8Choice"
+          },
+          "x-ing-type" : "array"
+        }
+      }
+    },
+    "SequenceType3Code" : {
+      "type" : "string",
+      "enum" : [ "FRST", "RCUR", "FNAL", "OOFF", "RPRE" ]
+    },
+    "SettlementInstruction7" : {
+      "type" : "object",
+      "required" : [ "sttlmMtd" ],
+      "properties" : {
+        "clrSys" : {
+          "$ref" : "#/definitions/ClearingSystemIdentification3Choice"
+        },
+        "instdRmbrsmntAgt" : {
+          "$ref" : "#/definitions/BranchAndFinancialInstitutionIdentification6"
+        },
+        "instdRmbrsmntAgtAcct" : {
+          "$ref" : "#/definitions/CashAccount38"
+        },
+        "instgRmbrsmntAgt" : {
+          "$ref" : "#/definitions/BranchAndFinancialInstitutionIdentification6"
+        },
+        "instgRmbrsmntAgtAcct" : {
+          "$ref" : "#/definitions/CashAccount38"
+        },
+        "sttlmAcct" : {
+          "$ref" : "#/definitions/CashAccount38"
+        },
+        "sttlmMtd" : {
+          "$ref" : "#/definitions/SettlementMethod1Code"
+        },
+        "thrdRmbrsmntAgt" : {
+          "$ref" : "#/definitions/BranchAndFinancialInstitutionIdentification6"
+        },
+        "thrdRmbrsmntAgtAcct" : {
+          "$ref" : "#/definitions/CashAccount38"
+        }
+      }
+    },
+    "SettlementMethod1Code" : {
+      "type" : "string",
+      "enum" : [ "INDA", "INGA", "COVE", "CLRG" ]
+    },
+    "StatusReason6Choice" : {
+      "type" : "object",
+      "properties" : {
+        "cd" : {
+          "$ref" : "#/definitions/ExternalStatusReason1Code"
+        },
+        "prtry" : {
+          "$ref" : "#/definitions/Max35Text"
+        }
+      }
+    },
+    "StatusReasonInformation12" : {
+      "type" : "object",
+      "properties" : {
+        "addtlInf" : {
+          "type" : "array",
+          "items" : {
+            "$ref" : "#/definitions/Max105Text"
+          },
+          "x-ing-type" : "array"
+        },
+        "orgtr" : {
+          "$ref" : "#/definitions/PartyIdentification135"
+        },
+        "rsn" : {
+          "$ref" : "#/definitions/StatusReason6Choice"
+        }
+      }
+    },
+    "TrackerData1" : {
+      "type" : "object",
+      "required" : [ "confdAmt", "confdDt", "trckrRcrd" ],
+      "properties" : {
+        "confdAmt" : {
+          "$ref" : "#/definitions/ActiveCurrencyAndAmount"
+        },
+        "confdDt" : {
+          "$ref" : "#/definitions/DateAndDateTime2Choice"
+        },
+        "trckrRcrd" : {
+          "type" : "array",
+          "items" : {
+            "$ref" : "#/definitions/TrackerRecord1"
+          },
+          "minItems" : 1,
+          "x-ing-type" : "array"
+        }
+      }
+    },
+    "TrackerRecord1" : {
+      "type" : "object",
+      "required" : [ "agt" ],
+      "properties" : {
+        "agt" : {
+          "$ref" : "#/definitions/BranchAndFinancialInstitutionIdentification6"
+        },
+        "chrgBr" : {
+          "$ref" : "#/definitions/ChargeBearerType1Code"
+        },
+        "chrgsAmt" : {
+          "$ref" : "#/definitions/ActiveCurrencyAndAmount"
+        },
+        "xchgRateData" : {
+          "$ref" : "#/definitions/CurrencyExchange13"
+        }
+      }
+    },
+    "SupplementaryDataEnvelope2" : {
+      "type" : "object",
+      "properties" : {
+        "ingSplmtryData" : {
+          "$ref" : "#/definitions/INGSupplementaryDataV02"
+        }
+      }
+    },
+    "INGSupplementaryDataV02" : {
+      "type" : "object",
+      "properties" : {
+        "ingprcgData" : {
+          "$ref" : "#/definitions/INGProcessingDataV02"
+        },
+        "ingbizData" : {
+          "$ref" : "#/definitions/INGBusinessDataV02"
+        }
+      }
+    },
+    "INGProcessingDataV02" : {
+      "type" : "object",
+      "properties" : {
+        "inggblRefs" : {
+          "$ref" : "#/definitions/INGGlobalReferencesV02"
+        },
+        "ingscty" : {
+          "$ref" : "#/definitions/INGSecurityV01"
+        },
+        "ingpmtprcgProps" : {
+          "$ref" : "#/definitions/INGPaymentProcessingPropertiesV02"
+        }
+      }
+    },
+    "INGGlobalReferencesV02" : {
+      "type" : "object",
+      "properties" : {
+        "ingobjTrnsprt" : {
+          "$ref" : "#/definitions/INGObjectTransportV02"
+        },
+        "inginstrRefs" : {
+          "$ref" : "#/definitions/INGInstructionReferencesV02"
+        },
+        "ingtxRefs" : {
+          "$ref" : "#/definitions/INGTransactionReferencesV01"
+        }
+      },
+      "description" : "The UUID is a very unique identifier, used abundantly by operating systems, disk management systems, databases and applications to uniquely tag objects. The UUID algorithms are well known, and these are implemented in most programming languages as internal libraries. Also, multiple databases are able to generate UUID's on-the-fly. The UUID format consists of 36 lower-case, hexadecimally filled positions, with fixed hyphens on position 9, 14, 19, 24 xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx. The division in bytes is 8-4-4-4-12. The values are stored in Big Endian byte order (significant byte first)"
+    },
+    "INGBusinessDataV02" : {
+      "type" : "object",
+      "properties" : {
+        "ingmsgInf" : {
+          "$ref" : "#/definitions/INGMsgInfV01"
+        },
+        "inglabels" : {
+          "$ref" : "#/definitions/INGLabelsV01"
+        },
+        "ingpmtInf" : {
+          "$ref" : "#/definitions/INGPmtInfV01"
+        }
+      }
+    },
+    "INGMsgInfV01" : {
+      "type" : "object",
+      "properties" : {
+        "ingtenant" : {
+          "type" : "string",
+          "x-ing-type" : "string"
+        },
+        "ingchannel" : {
+          "type" : "string",
+          "x-ing-type" : "string"
+        },
+        "ingclientId" : {
+          "type" : "string",
+          "x-ing-type" : "string"
+        },
+        "loginMeansCountryCode" : {
+          "type" : "string",
+          "example" : "WB",
+          "description" : "Country of selected Login Means e.g. RO(for Retail Romania), WB (for ALL WholeSale bank countries) ",
+          "pattern" : "[A-Z]{2,2}",
+          "x-ing-type" : "string"
+        }
+      }
+    },
+    "INGLabelsV01" : {
+      "type" : "object",
+      "properties" : {
+        "message" : {
+          "type" : "array",
+          "items" : {
+            "$ref" : "#/definitions/INGLabelV01"
+          },
+          "x-ing-type" : "array"
+        },
+        "order" : {
+          "type" : "array",
+          "items" : {
+            "$ref" : "#/definitions/INGLabelV01"
+          },
+          "x-ing-type" : "array"
+        },
+        "transaction" : {
+          "type" : "array",
+          "items" : {
+            "$ref" : "#/definitions/INGLabelV01"
+          },
+          "x-ing-type" : "array"
+        }
+      }
+    },
+    "INGLabelV01" : {
+      "type" : "object",
+      "properties" : {
+        "key" : {
+          "type" : "string",
+          "x-ing-type" : "string"
+        },
+        "value" : {
+          "type" : "string",
+          "x-ing-type" : "string"
+        }
+      }
+    },
+    "INGPmtInfV01" : {
+      "type" : "object",
+      "properties" : {
+        "prdRef" : {
+          "$ref" : "#/definitions/ProductReferenceV01"
+        },
+        "orgtAcct" : {
+          "type" : "object",
+          "properties" : {
+            "acctUUID" : {
+              "type" : "string",
+              "minLength" : 1,
+              "maxLength" : 36,
+              "x-ing-type" : "string"
+            },
+            "systemOfRecord" : {
+              "type" : "string",
+              "x-ing-type" : "string"
+            }
+          },
+          "x-ing-type" : "object"
+        },
+        "prdcPmtInf" : {
+          "$ref" : "#/definitions/PeriodicPaymentInformation01"
+        }
+      }
+    },
+    "ProductReferenceV01" : {
+      "type" : "object",
+      "properties" : {
+        "instdPdctTp" : {
+          "type" : "string",
+          "description" : "The addressed payment product endpoint. The list of products supported is  - sepa-credit-transfers - cross-border-credit-transfers - domestic-credit-transfers - instant-credit-transfers",
+          "x-ing-type" : "string"
+        },
+        "requestedExecutionType" : {
+          "type" : "string",
+          "description" : "Specifies the instructed execution type of Payment",
+          "enum" : [ "periodic-payment", "future-dated", "bulk-payment" ],
+          "x-ing-type" : "string"
+        },
+        "instantExecutionPossible" : {
+          "type" : "boolean",
+          "description" : "True / False: based on the instant processing capability as determined in payment initiation process",
+          "default" : false,
+          "x-ing-type" : "boolean"
+        },
+        "ingInternalTrxClssfctn" : {
+          "type" : "string",
+          "description" : "IITC code - valid value range is provided in an externally maintained list.",
+          "minLength" : 1,
+          "maxLength" : 15,
+          "x-ing-type" : "string"
+        }
+      }
+    },
+    "PeriodicPaymentInformation01" : {
+      "type" : "object",
+      "properties" : {
+        "startDate" : {
+          "type" : "string",
+          "format" : "date",
+          "example" : "2019-01-30",
+          "description" : "The first applicable day of execution starting from this date is the first payment. Expressed in YYYY-MM-DD format",
+          "x-ing-type" : "string"
+        },
+        "endDate" : {
+          "type" : "string",
+          "format" : "date",
+          "example" : "2019-01-30",
+          "description" : "The last applicable day of execution If not given, it is an infinite standing order. Expressed in YYYY-MM-DD format",
+          "x-ing-type" : "string"
+        },
+        "frequency" : {
+          "$ref" : "#/definitions/frequencyCode"
+        },
+        "executionRule" : {
+          "$ref" : "#/definitions/executionRule"
+        },
+        "dayOfExecution" : {
+          "$ref" : "#/definitions/dayOfExecution"
+        },
+        "orgnlStndgOrderId" : {
+          "type" : "string",
+          "format" : "uuid",
+          "x-ing-type" : "string"
+        }
+      }
+    },
+    "INGPaymentProcessingPropertiesV02" : {
+      "type" : "object",
+      "properties" : {
+        "pldSrc" : {
+          "description" : "Information about payload source",
+          "$ref" : "#/definitions/PayloadSourceV01"
+        },
+        "draft" : {
+          "description" : "Draft payload information",
+          "$ref" : "#/definitions/DraftV01"
+        },
+        "reqInf" : {
+          "description" : "Information supplied along with payment request",
+          "$ref" : "#/definitions/RequestInformationV01"
+        },
+        "authInf" : {
+          "description" : "Information related to payment authorization",
+          "$ref" : "#/definitions/AuthorizationInformationV01"
+        },
+        "execInf" : {
+          "description" : "Information related to payment processing",
+          "$ref" : "#/definitions/ExecutionInformationV01"
+        },
+        "reptInf" : {
+          "description" : "Information related to payment reporting",
+          "$ref" : "#/definitions/ReportingInformationV01"
+        }
+      }
+    },
+    "DraftV01" : {
+      "type" : "object",
+      "properties" : {
+        "draftId" : {
+          "type" : "string",
+          "x-ing-type" : "string"
+        },
+        "draftSts" : {
+          "type" : "string",
+          "x-ing-type" : "string"
+        },
+        "addtlInf" : {
+          "type" : "array",
+          "items" : {
+            "type" : "string",
+            "x-ing-type" : "string"
+          },
+          "x-ing-type" : "array"
+        }
+      }
+    },
+    "PayloadSourceV01" : {
+      "type" : "object",
+      "properties" : {
+        "fileNm" : {
+          "type" : "string",
+          "x-ing-type" : "string"
+        },
+        "fileFmt" : {
+          "type" : "string",
+          "x-ing-type" : "string"
+        },
+        "ctrlHash" : {
+          "type" : "object",
+          "properties" : {
+            "sha1" : {
+              "type" : "string",
+              "x-ing-type" : "string"
+            },
+            "sha256" : {
+              "type" : "string",
+              "x-ing-type" : "string"
+            },
+            "md5" : {
+              "type" : "string",
+              "x-ing-type" : "string"
+            }
+          },
+          "x-ing-type" : "object"
+        },
+        "fileSts" : {
+          "type" : "string",
+          "x-ing-type" : "string"
+        }
+      }
+    },
+    "AuthorizationInformationV01" : {
+      "type" : "object",
+      "properties" : {
+        "ingApprovalReq" : {
+          "$ref" : "#/definitions/INGApprovalRequest"
+        },
+        "authorizationMeansName" : {
+          "type" : "string",
+          "description" : "Name of AUTHORIZATION_MEANS used for Authorization of Payment",
+          "x-ing-type" : "string"
+        },
+        "authorizationMeansID" : {
+          "type" : "string",
+          "description" : "ID of AUTHORIZATION_MEANS used for Authorization of Payment",
+          "x-ing-type" : "string"
+        },
+        "thirdPartyInf" : {
+          "$ref" : "#/definitions/ThirdPartyInformationV01"
+        }
+      }
+    },
+    "ExecutionInformationV01" : {
+      "type" : "object",
+      "properties" : {
+        "reqFeedbckDstn" : {
+          "type" : "string",
+          "description" : "Requested Feedback Destination",
+          "x-ing-type" : "string"
+        },
+        "forcdBook" : {
+          "type" : "boolean",
+          "description" : "'True': Forced booking required. 'False' or not available: Forced booking not required.",
+          "x-ing-type" : "boolean"
+        },
+        "dbtValDt" : {
+          "type" : "object",
+          "description" : "Debit Value Date",
+          "properties" : {
+            "dt" : {
+              "type" : "string",
+              "format" : "date",
+              "description" : "PaymentTransactionInformation.DebitValueDate",
+              "x-ing-type" : "string"
+            },
+            "dtTm" : {
+              "type" : "string",
+              "format" : "date-time",
+              "description" : "PaymentTransactionInformation.DebitValueDateTime",
+              "x-ing-type" : "string"
+            }
+          },
+          "x-ing-type" : "object"
+        },
+        "crdtValDt" : {
+          "type" : "object",
+          "description" : "Credit Value Date",
+          "properties" : {
+            "dt" : {
+              "type" : "string",
+              "format" : "date",
+              "description" : "PaymentTransactionInformation.CreditValueDate",
+              "x-ing-type" : "string"
+            },
+            "dtTm" : {
+              "type" : "string",
+              "format" : "date-time",
+              "description" : "PaymentTransactionInformation.CreditValueDateTime",
+              "x-ing-type" : "string"
+            }
+          },
+          "x-ing-type" : "object"
+        },
+        "zeroTariffChrg" : {
+          "type" : "boolean",
+          "description" : "'True': Zero Tariff Charging required. 'False' or not available: Zero Tariff Charging not to be applied.",
+          "x-ing-type" : "boolean"
+        },
+        "zeroTariffBllg" : {
+          "type" : "boolean",
+          "description" : "'True': Zero Tariff Billing required. 'False' or not available: Zero Tariff Billing not to be applied.",
+          "x-ing-type" : "boolean"
+        },
+        "dbtAuthstnId" : {
+          "type" : "string",
+          "description" : "ING Debit Authorization ID",
+          "minLength" : 1,
+          "maxLength" : 64,
+          "x-ing-type" : "string"
+        },
+        "accptncDtTm" : {
+          "type" : "string",
+          "format" : "date-time",
+          "description" : "Transaction acceptance date time - To allow an accurate control of the maximum execution time by all parties involved in the SCT Inst Transaction the Originator Bank has to add a Time Stamp in the SCT Inst Transaction marking the start of the Execution Time Cycle",
+          "x-ing-type" : "string"
+        },
+        "txSts" : {
+          "type" : "string",
+          "description" : "Specifies the status of a transaction, in a coded form.",
+          "minLength" : 1,
+          "maxLength" : 4,
+          "x-ing-type" : "string"
+        },
+        "txStsRsnInf" : {
+          "type" : "array",
+          "description" : "Status reason information about transaction status",
+          "items" : {
+            "type" : "object",
+            "properties" : {
+              "rsn" : {
+                "type" : "object",
+                "properties" : {
+                  "cd" : {
+                    "type" : "string",
+                    "minLength" : 1,
+                    "maxLength" : 4,
+                    "x-ing-type" : "string"
+                  },
+                  "prtry" : {
+                    "type" : "string",
+                    "minLength" : 1,
+                    "maxLength" : 35,
+                    "x-ing-type" : "string"
+                  }
+                },
+                "x-ing-type" : "object"
+              },
+              "addtlInf" : {
+                "type" : "array",
+                "items" : {
+                  "$ref" : "#/definitions/Max105Text"
+                },
+                "x-ing-type" : "array"
+              }
+            },
+            "x-ing-type" : "object"
+          },
+          "x-ing-type" : "array"
+        }
+      }
+    },
+    "ReportingInformationV01" : {
+      "type" : "object",
+      "properties" : {
+        "docPresntgPty" : {
+          "type" : "string",
+          "description" : "CTRF: Customer Credit Transfer (MT103 credit leg). FTRF: Financial Institution Transfer (MT202 credit leg). RTRF: Request For Transfer (MT101 debit leg).",
+          "enum" : [ "BTRF", "BTRFIL", "BTRFIN", "CTRF", "RTRF", "RTRFOC" ],
+          "x-ing-type" : "string"
+        }
+      }
+    },
+    "RequestInformationV01" : {
+      "type" : "object",
+      "properties" : {
+        "cardRefInf" : {
+          "description" : "Card Payments Reference Information",
+          "$ref" : "#/definitions/CardReferenceInformationV01"
+        },
+        "psu-ip-Address" : {
+          "type" : "string",
+          "x-ing-type" : "string"
+        },
+        "tpp-request-id" : {
+          "type" : "string",
+          "x-ing-type" : "string"
+        },
+        "x-ing-accesstoken" : {
+          "type" : "string",
+          "x-ing-type" : "string"
+        }
+      }
+    },
+    "CardReferenceInformationV01" : {
+      "type" : "object",
+      "properties" : {
+        "cardSeqNb" : {
+          "type" : "string",
+          "description" : "Card sequence number. use case deposits",
+          "minLength" : 1,
+          "maxLength" : 3,
+          "x-ing-type" : "string"
+        },
+        "cardAccptrLctn" : {
+          "type" : "string",
+          "description" : "PointOfSaleName - ATM Location",
+          "minLength" : 1,
+          "maxLength" : 100,
+          "x-ing-type" : "string"
+        },
+        "receiptId" : {
+          "type" : "string",
+          "description" : "Receipt ID with respect to bank deposits",
+          "minLength" : 1,
+          "maxLength" : 25,
+          "x-ing-type" : "string"
+        },
+        "cardAccptrTxId" : {
+          "type" : "string",
+          "description" : "Unique transaction ID with respect to bank deposits",
+          "minLength" : 1,
+          "maxLength" : 25,
+          "x-ing-type" : "string"
+        },
+        "retrRefNum" : {
+          "type" : "string",
+          "description" : "Retrieval Reference Number (RRN) - Unique transaction ID with respect to cash transactions",
+          "minLength" : 1,
+          "maxLength" : 25,
+          "x-ing-type" : "string"
+        },
+        "storeNb" : {
+          "type" : "string",
+          "description" : "Store number - Branch number of the customer",
+          "minLength" : 1,
+          "maxLength" : 8,
+          "x-ing-type" : "string"
+        },
+        "trmnlId" : {
+          "type" : "string",
+          "description" : "PointOfSaleNumber - ATM ID",
+          "minLength" : 1,
+          "maxLength" : 8,
+          "x-ing-type" : "string"
+        },
+        "cstmrApprDtTm" : {
+          "type" : "string",
+          "format" : "date-time",
+          "description" : "Customer Approval Date Time - TransactionDateTime",
+          "x-ing-type" : "string"
+        },
+        "maskedPAN" : {
+          "type" : "string",
+          "description" : "Masked PAN as created in the case of Cash Deposits by CashOrchestration",
+          "minLength" : 1,
+          "maxLength" : 23,
+          "x-ing-type" : "string"
+        },
+        "clearingCycleId" : {
+          "type" : "integer",
+          "format" : "int32",
+          "description" : "Clearing Cycle identifiers as created in the case of Cash Deposits by CashOrchestration",
+          "minimum" : 1,
+          "maximum" : 9999,
+          "x-ing-type" : "integer"
+        }
+      }
+    },
+    "INGObjectTransportV02" : {
+      "type" : "object",
+      "properties" : {
+        "ingfileId" : {
+          "type" : "string",
+          "format" : "uuid",
+          "x-ing-type" : "string"
+        },
+        "ingmsgId" : {
+          "type" : "string",
+          "format" : "uuid",
+          "x-ing-type" : "string"
+        },
+        "ingmsgHash" : {
+          "type" : "string",
+          "x-ing-type" : "string"
+        }
+      }
+    },
+    "INGInstructionReferencesV02" : {
+      "type" : "object",
+      "required" : [ "inginstrId" ],
+      "properties" : {
+        "orgnlINGInstrId" : {
+          "type" : "string",
+          "format" : "uuid",
+          "x-ing-type" : "string"
+        },
+        "inginstrId" : {
+          "type" : "string",
+          "format" : "uuid",
+          "x-ing-type" : "string"
+        },
+        "inginstrHash" : {
+          "type" : "string",
+          "x-ing-type" : "string"
+        }
+      }
+    },
+    "INGTransactionReferencesV01" : {
+      "type" : "object",
+      "required" : [ "ingtxId" ],
+      "properties" : {
+        "orgnlINGTxId" : {
+          "type" : "string",
+          "format" : "uuid",
+          "x-ing-type" : "string"
+        },
+        "ingtxId" : {
+          "type" : "string",
+          "format" : "uuid",
+          "x-ing-type" : "string"
+        }
+      }
+    },
+    "INGSecurityV01" : {
+      "type" : "object",
+      "properties" : {
+        "ingintgrty" : {
+          "type" : "object",
+          "properties" : {
+            "ingsgntr" : {
+              "type" : "string",
+              "format" : "byte",
+              "example" : "U3dhZ2dlciByb2Nrcw==",
+              "description" : "base64-encoded characters",
+              "pattern" : "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
+              "x-ing-type" : "string"
+            },
+            "ingthmbprt" : {
+              "type" : "string",
+              "format" : "byte",
+              "example" : "U3dhZ2dlciByb2Nrcw==",
+              "description" : "base64-encoded characters",
+              "pattern" : "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
+              "x-ing-type" : "string"
+            },
+            "ingtrstdStmp" : {
+              "type" : "object",
+              "properties" : {
+                "tmStmp" : {
+                  "type" : "string",
+                  "format" : "date-time",
+                  "x-ing-type" : "string"
+                },
+                "ingsgntr" : {
+                  "type" : "string",
+                  "format" : "byte",
+                  "example" : "U3dhZ2dlciByb2Nrcw==",
+                  "description" : "base64-encoded characters",
+                  "pattern" : "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
+                  "x-ing-type" : "string"
+                },
+                "ingthmbprt" : {
+                  "type" : "string",
+                  "format" : "byte",
+                  "example" : "U3dhZ2dlciByb2Nrcw==",
+                  "description" : "base64-encoded characters",
+                  "pattern" : "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
+                  "x-ing-type" : "string"
+                }
+              },
+              "x-ing-type" : "object"
+            }
+          },
+          "x-ing-type" : "object"
+        }
+      }
+    },
+    "INGApprovalRequest" : {
+      "type" : "object",
+      "properties" : {
+        "externalId" : {
+          "type" : "object",
+          "properties" : {
+            "externalReference" : {
+              "type" : "string",
+              "format" : "uuid",
+              "example" : "32f8fbe2-b86e-41d2-add0-a49070be2cf4",
+              "description" : "The external reference.",
+              "x-ing-type" : "string"
+            },
+            "externalSource" : {
+              "type" : "string",
+              "example" : "LIOM",
+              "description" : "The name of the external source e.g. LIOM or GIOM",
+              "x-ing-type" : "string"
+            }
+          },
+          "x-ing-type" : "object"
+        }
+      }
+    },
+    "ThirdPartyInformationV01" : {
+      "type" : "object",
+      "properties" : {
+        "aspspScaApproach" : {
+          "type" : "array",
+          "description" : "ASPSPScaApproaches supported by the third party (bank)",
+          "items" : {
+            "type" : "string",
+            "enum" : [ "DECOUPLED", "REDIRECT", "EMBEDDED" ],
+            "x-ing-type" : "string"
+          },
+          "x-ing-type" : "array"
+        },
+        "redirectBackURL" : {
+          "type" : "string",
+          "description" : "RedirectBackURL from the third party (bank) (in case of REDIRECT SCA)",
+          "x-ing-type" : "string"
+        },
+        "messageToPSU" : {
+          "type" : "string",
+          "description" : "Message from the third party (bank) (in case of DECOUPLED SCA)",
+          "x-ing-type" : "string"
+        },
+        "scaMethod" : {
+          "type" : "string",
+          "description" : "SCAMethod from the third party (bank)(in case of EMBEDDED SCA)",
+          "x-ing-type" : "string"
+        }
+      }
+    },
+    "frequencyCode" : {
+      "type" : "string",
+      "description" : "The following codes from the \"EventFrequency7Code\" of ISO 20022 are supported.\n- DAIL: Daily\n- WEEK: Weekly\n- TOWK: EveryTwoWeeks\n- MNTH: Monthly\n- TOMN: EveryTwoMonths\n- FOMN: EveryFourMonths\n- QUTR: Quarterly\n- SEMI: SemiAnnual\n- YEAR: Annual\n",
+      "enum" : [ "DAIL", "WEEK", "TOWK", "MNTH", "TOMN", "FOMN", "QUTR", "SEMI", "YEAR" ]
+    },
+    "dayOfExecution" : {
+      "type" : "string",
+      "description" : "Day of execution as string in the form DD.\nThis string consists always of two characters.\n31 is ultimo of the month.\n",
+      "enum" : [ "01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11", "12", "13", "14", "15", "16", "17", "18", "19", "20", "21", "22", "23", "24", "25", "26", "27", "28", "29", "30", "31" ]
+    },
+    "executionRule" : {
+      "type" : "string",
+      "description" : "\"following\" or \"preceeding\" supported as values.\nThis data attribute defines the behavior when recurring payment dates falls on a weekend or bank holiday.\nThe payment is then executed either the \"preceeding\" or \"following\" working day.\n",
+      "enum" : [ "following", "preceeding" ]
+    },
+    "ExternalLink" : {
+      "type" : "object",
+      "required" : [ "href", "rel" ],
+      "properties" : {
+        "rel" : {
+          "type" : "string",
+          "x-ing-type" : "string"
+        },
+        "href" : {
+          "type" : "string",
+          "x-ing-type" : "string"
+        },
+        "title" : {
+          "type" : "string",
+          "x-ing-type" : "string"
+        }
+      }
+    },
+    "ExternalMessage" : {
+      "type" : "object",
+      "properties" : {
+        "category" : {
+          "type" : "string",
+          "description" : "Category of the message",
+          "enum" : [ "INFO", "WARNING", "ERROR" ],
+          "x-ing-type" : "string"
+        },
+        "code" : {
+          "type" : "string",
+          "description" : "Message code",
+          "x-ing-type" : "string"
+        },
+        "message" : {
+          "type" : "string",
+          "x-ing-type" : "string"
+        },
+        "payload" : {
+          "type" : "object",
+          "description" : "Any data for message interpolation",
+          "additionalProperties" : {
+            "type" : "object",
+            "properties" : { },
+            "x-ing-type" : "object"
+          },
+          "x-ing-type" : "object"
+        },
+        "properties" : {
+          "type" : "array",
+          "description" : "Array of properties for more details",
+          "items" : {
+            "type" : "string",
+            "x-ing-type" : "string"
+          },
+          "x-ing-type" : "array"
+        }
+      },
+      "description" : "An INFO, WARNING or ERROR message with a code, textual message and possibly a payload object."
+    },
+    "transactionInformationAndStatus" : {
+      "required" : [ "transactionIdentification", "transactionStatus" ],
+      "properties" : {
+        "transactionIdentification" : {
+          "type" : "string",
+          "x-ing-type" : "string"
+        },
+        "transactionStatus" : {
+          "$ref" : "#/definitions/TransactionIndividualStatus3Code"
+        },
+        "statusReasonInformation" : {
+          "type" : "array",
+          "items" : {
+            "$ref" : "#/definitions/statusReasonInformation"
+          },
+          "x-ing-type" : "array"
+        }
+      }
+    },
+    "statusReasonInformation" : {
+      "required" : [ "reason" ],
+      "properties" : {
+        "reason" : {
+          "$ref" : "#/definitions/statusReasonCode"
+        },
+        "additionalInformation" : {
+          "type" : "array",
+          "items" : {
+            "type" : "string",
+            "x-ing-type" : "string"
+          },
+          "x-ing-type" : "array"
+        }
+      }
+    },
+    "statusReasonCode" : {
+      "type" : "object",
+      "properties" : {
+        "code" : {
+          "$ref" : "#/definitions/ExternalStatusReason1Code"
+        },
+        "proprietaryCode" : {
+          "$ref" : "#/definitions/Max35Text"
+        }
+      }
+    },
+    "PaymentOrderRequestV02WithoutSpp" : {
+      "type" : "object",
+      "required" : [ "cstmrCdtTrfInitn" ],
+      "properties" : {
+        "cstmrCdtTrfInitn" : {
+          "$ref" : "#/definitions/CustomerCreditTransferInitiationV10WithoutSpp"
+        }
+      }
+    },
+    "CustomerCreditTransferInitiationV10WithoutSpp" : {
+      "type" : "object",
+      "required" : [ "grpHdr", "pmtInf" ],
+      "properties" : {
+        "grpHdr" : {
+          "$ref" : "#/definitions/GroupHeader95"
+        },
+        "pmtInf" : {
+          "type" : "array",
+          "items" : {
+            "$ref" : "#/definitions/PaymentInstruction34"
+          },
+          "minItems" : 1,
+          "x-ing-type" : "array"
+        },
+        "splmtryData" : {
+          "type" : "array",
+          "items" : {
+            "$ref" : "#/definitions/SupplementaryData2WithoutSpp"
+          },
+          "minItems" : 1,
+          "x-ing-type" : "array"
+        }
+      }
+    },
+    "TransactionIndividualStatus3Code" : {
+      "type" : "string",
+      "description" : "Code    Name  Definition ACCC  AcceptedSettlementCompletedCreditorAccount  Settlement on the creditor's account has been completed. ACCP  AcceptedCustomerProfile  Preceding check of technical validation was successful. Customer profile check was also successful. ACFC  AcceptedFundsChecked  Preceding check of technical validation and customer profile was successful and an automatic funds check was positive. ACSC  AcceptedSettlementCompletedDebitorAccount  Settlement on the debtor's account has been completed. Usage : this can be used by the first agent to report to the debtor that the transaction has been completed. Warning : this status is provided for transaction status reasons, not for financial information. It can only be used after bilateral agreement ACSP  AcceptedSettlementInProcess  All preceding checks such as technical validation and customer profile were successful and therefore the payment initiation has been accepted for execution. ACTC  AcceptedTechnicalValidation  Authentication and syntactical and semantical validation are successful ACWC  AcceptedWithChange  Instruction is accepted but a change will be made, such as date or remittance not sent. ACWP  AcceptedWithoutPosting  Payment instruction included in the credit transfer is accepted without being posted to the creditor customer’s account. CANC  Cancelled  Payment initiation has been successfully cancelled after having received a request for cancellation. Usage: code to be used in the context of APIs only. PATC  PartiallyAcceptedTechnicalCorrect  Payment initiation needs multiple authentications, where some but not yet all have been performed. Syntactical and semantical validations are successful. PDNG  Pending  Payment initiation or individual transaction included in the payment initiation is pending. Further checks and status update will be performed. RCVD  Received  Payment initiation has been received by the receiving agent. RJCT  Rejected  Payment initiation or individual transaction included in the payment initiation has been rejected.\n",
+      "enum" : [ "ACCC", "ACCP", "ACFC", "ACSC", "ACSP", "ACTC", "ACWC", "ACWP", "CANC", "PATC", "PDNG", "RCVD", "RJCT" ]
+    },
+    "AdviceType1" : {
+      "type" : "object",
+      "properties" : {
+        "cdtAdvc" : {
+          "$ref" : "#/definitions/AdviceType1Choice"
+        },
+        "dbtAdvc" : {
+          "$ref" : "#/definitions/AdviceType1Choice"
+        }
+      }
+    },
+    "AdviceType1Choice" : {
+      "type" : "object",
+      "properties" : {
+        "cd" : {
+          "$ref" : "#/definitions/AdviceType1Code"
+        },
+        "prtry" : {
+          "$ref" : "#/definitions/Max35Text"
+        }
+      }
+    },
+    "AdviceType1Code" : {
+      "type" : "string",
+      "enum" : [ "ADWD", "ADND" ]
+    },
+    "Authorisation1Choice" : {
+      "type" : "object",
+      "properties" : {
+        "cd" : {
+          "$ref" : "#/definitions/Authorisation1Code"
+        },
+        "prtry" : {
+          "$ref" : "#/definitions/Max128Text"
+        }
+      }
+    },
+    "Authorisation1Code" : {
+      "type" : "string",
+      "enum" : [ "AUTH", "FDET", "FSUM", "ILEV" ]
+    },
+    "BatchBookingIndicator" : {
+      "type" : "boolean"
+    },
+    "Cheque11" : {
+      "type" : "object",
+      "properties" : {
+        "chqFr" : {
+          "$ref" : "#/definitions/NameAndAddress16"
+        },
+        "chqMtrtyDt" : {
+          "$ref" : "#/definitions/ISODate"
+        },
+        "chqNb" : {
+          "$ref" : "#/definitions/Max35Text"
+        },
+        "chqTp" : {
+          "$ref" : "#/definitions/ChequeType2Code"
+        },
+        "dlvrTo" : {
+          "$ref" : "#/definitions/NameAndAddress16"
+        },
+        "dlvryMtd" : {
+          "$ref" : "#/definitions/ChequeDeliveryMethod1Choice"
+        },
+        "frmsCd" : {
+          "$ref" : "#/definitions/Max35Text"
+        },
+        "instrPrty" : {
+          "$ref" : "#/definitions/Priority2Code"
+        },
+        "memoFld" : {
+          "type" : "array",
+          "items" : {
+            "$ref" : "#/definitions/Max35Text"
+          },
+          "x-ing-type" : "array"
+        },
+        "prtLctn" : {
+          "$ref" : "#/definitions/Max35Text"
+        },
+        "rgnlClrZone" : {
+          "$ref" : "#/definitions/Max35Text"
+        },
+        "sgntr" : {
+          "type" : "array",
+          "items" : {
+            "$ref" : "#/definitions/Max70Text"
+          },
+          "x-ing-type" : "array"
+        }
+      }
+    },
+    "ChequeDelivery1Code" : {
+      "type" : "string",
+      "enum" : [ "MLDB", "MLCD", "MLFA", "CRDB", "CRCD", "CRFA", "PUDB", "PUCD", "PUFA", "RGDB", "RGCD", "RGFA" ]
+    },
+    "ChequeDeliveryMethod1Choice" : {
+      "type" : "object",
+      "properties" : {
+        "cd" : {
+          "$ref" : "#/definitions/ChequeDelivery1Code"
+        },
+        "prtry" : {
+          "$ref" : "#/definitions/Max35Text"
+        }
+      }
+    },
+    "ChequeType2Code" : {
+      "type" : "string",
+      "enum" : [ "CCHQ", "CCCH", "BCHQ", "DRFT", "ELDR" ]
+    },
+    "CreditTransferTransaction40" : {
+      "type" : "object",
+      "required" : [ "amt", "pmtId" ],
+      "properties" : {
+        "amt" : {
+          "$ref" : "#/definitions/AmountType4Choice"
+        },
+        "cdtr" : {
+          "$ref" : "#/definitions/PartyIdentification135"
+        },
+        "cdtrAcct" : {
+          "$ref" : "#/definitions/CashAccount38"
+        },
+        "cdtrAgt" : {
+          "$ref" : "#/definitions/BranchAndFinancialInstitutionIdentification6"
+        },
+        "cdtrAgtAcct" : {
+          "$ref" : "#/definitions/CashAccount38"
+        },
+        "chqInstr" : {
+          "$ref" : "#/definitions/Cheque11"
+        },
+        "chrgBr" : {
+          "$ref" : "#/definitions/ChargeBearerType1Code"
+        },
+        "instrForCdtrAgt" : {
+          "type" : "array",
+          "items" : {
+            "$ref" : "#/definitions/InstructionForCreditorAgent3"
+          },
+          "x-ing-type" : "array"
+        },
+        "instrForDbtrAgt" : {
+          "$ref" : "#/definitions/InstructionForDebtorAgent1"
+        },
+        "intrmyAgt1" : {
+          "$ref" : "#/definitions/BranchAndFinancialInstitutionIdentification6"
+        },
+        "intrmyAgt1Acct" : {
+          "$ref" : "#/definitions/CashAccount38"
+        },
+        "intrmyAgt2" : {
+          "$ref" : "#/definitions/BranchAndFinancialInstitutionIdentification6"
+        },
+        "intrmyAgt2Acct" : {
+          "$ref" : "#/definitions/CashAccount38"
+        },
+        "intrmyAgt3" : {
+          "$ref" : "#/definitions/BranchAndFinancialInstitutionIdentification6"
+        },
+        "intrmyAgt3Acct" : {
+          "$ref" : "#/definitions/CashAccount38"
+        },
+        "mndtRltdInf" : {
+          "$ref" : "#/definitions/CreditTransferMandateData1"
+        },
+        "pmtId" : {
+          "$ref" : "#/definitions/PaymentIdentification6"
+        },
+        "pmtTpInf" : {
+          "$ref" : "#/definitions/PaymentTypeInformation26"
+        },
+        "purp" : {
+          "$ref" : "#/definitions/Purpose2Choice"
+        },
+        "rgltryRptg" : {
+          "type" : "array",
+          "items" : {
+            "$ref" : "#/definitions/RegulatoryReporting3"
+          },
+          "x-ing-type" : "array"
+        },
+        "rltdRmtInf" : {
+          "type" : "array",
+          "items" : {
+            "$ref" : "#/definitions/RemittanceLocation7"
+          },
+          "x-ing-type" : "array"
+        },
+        "rmtInf" : {
+          "$ref" : "#/definitions/RemittanceInformation16"
+        },
+        "splmtryData" : {
+          "type" : "array",
+          "items" : {
+            "$ref" : "#/definitions/SupplementaryData2"
+          },
+          "x-ing-type" : "array"
+        },
+        "tax" : {
+          "$ref" : "#/definitions/TaxInformation8"
+        },
+        "ultmtCdtr" : {
+          "$ref" : "#/definitions/PartyIdentification135"
+        },
+        "ultmtDbtr" : {
+          "$ref" : "#/definitions/PartyIdentification135"
+        },
+        "xchgRateInf" : {
+          "$ref" : "#/definitions/ExchangeRate1"
+        }
+      }
+    },
+    "ExchangeRate1" : {
+      "type" : "object",
+      "properties" : {
+        "ctrctId" : {
+          "$ref" : "#/definitions/Max35Text"
+        },
+        "rateTp" : {
+          "$ref" : "#/definitions/ExchangeRateType1Code"
+        },
+        "unitCcy" : {
+          "$ref" : "#/definitions/ActiveOrHistoricCurrencyCode"
+        },
+        "xchgRate" : {
+          "$ref" : "#/definitions/BaseOneRate"
+        }
+      }
+    },
+    "ExchangeRateType1Code" : {
+      "type" : "string",
+      "enum" : [ "SPOT", "SALE", "AGRD" ]
+    },
+    "ExternalCreditorAgentInstruction1Code" : {
+      "type" : "string",
+      "minLength" : 1,
+      "maxLength" : 4
+    },
+    "ExternalDebtorAgentInstruction1Code" : {
+      "type" : "string",
+      "minLength" : 1,
+      "maxLength" : 4
+    },
+    "GroupHeader95" : {
+      "type" : "object",
+      "required" : [ "creDtTm", "initgPty", "msgId", "nbOfTxs" ],
+      "properties" : {
+        "authstn" : {
+          "type" : "array",
+          "items" : {
+            "$ref" : "#/definitions/Authorisation1Choice"
+          },
+          "x-ing-type" : "array"
+        },
+        "creDtTm" : {
+          "$ref" : "#/definitions/ISODateTime"
+        },
+        "ctrlSum" : {
+          "$ref" : "#/definitions/DecimalNumber"
+        },
+        "fwdgAgt" : {
+          "$ref" : "#/definitions/BranchAndFinancialInstitutionIdentification6"
+        },
+        "initgPty" : {
+          "$ref" : "#/definitions/PartyIdentification135"
+        },
+        "initnSrc" : {
+          "$ref" : "#/definitions/PaymentInitiationSource1"
+        },
+        "msgId" : {
+          "$ref" : "#/definitions/Max35Text"
+        },
+        "nbOfTxs" : {
+          "$ref" : "#/definitions/Max15NumericText"
+        }
+      }
+    },
+    "InstructionForCreditorAgent3" : {
+      "type" : "object",
+      "properties" : {
+        "cd" : {
+          "$ref" : "#/definitions/ExternalCreditorAgentInstruction1Code"
+        },
+        "instrInf" : {
+          "$ref" : "#/definitions/Max140Text"
+        }
+      }
+    },
+    "InstructionForDebtorAgent1" : {
+      "type" : "object",
+      "properties" : {
+        "cd" : {
+          "$ref" : "#/definitions/ExternalDebtorAgentInstruction1Code"
+        },
+        "instrInf" : {
+          "$ref" : "#/definitions/Max140Text"
+        }
+      }
+    },
+    "Max10Text" : {
+      "type" : "string",
+      "minLength" : 1,
+      "maxLength" : 10
+    },
+    "NameAndAddress16" : {
+      "type" : "object",
+      "required" : [ "adr", "nm" ],
+      "properties" : {
+        "adr" : {
+          "$ref" : "#/definitions/PostalAddress24"
+        },
+        "nm" : {
+          "$ref" : "#/definitions/Max140Text"
+        }
+      }
+    },
+    "PaymentIdentification6" : {
+      "type" : "object",
+      "required" : [ "endToEndId" ],
+      "properties" : {
+        "endToEndId" : {
+          "$ref" : "#/definitions/Max35Text"
+        },
+        "instrId" : {
+          "$ref" : "#/definitions/Max35Text"
+        },
+        "uetr" : {
+          "$ref" : "#/definitions/UUIDv4Identifier"
+        }
+      }
+    },
+    "PaymentInitiationSource1" : {
+      "type" : "object",
+      "required" : [ "nm" ],
+      "properties" : {
+        "nm" : {
+          "$ref" : "#/definitions/Max140Text"
+        },
+        "prvdr" : {
+          "$ref" : "#/definitions/Max35Text"
+        },
+        "vrsn" : {
+          "$ref" : "#/definitions/Max35Text"
+        }
+      }
+    },
+    "PaymentInstruction34" : {
+      "type" : "object",
+      "required" : [ "cdtTrfTxInf", "dbtr", "dbtrAcct", "dbtrAgt", "pmtInfId", "pmtMtd", "reqdExctnDt" ],
+      "properties" : {
+        "btchBookg" : {
+          "$ref" : "#/definitions/BatchBookingIndicator"
+        },
+        "cdtTrfTxInf" : {
+          "type" : "array",
+          "items" : {
+            "$ref" : "#/definitions/CreditTransferTransaction40"
+          },
+          "minItems" : 1,
+          "x-ing-type" : "array"
+        },
+        "chrgBr" : {
+          "$ref" : "#/definitions/ChargeBearerType1Code"
+        },
+        "chrgsAcct" : {
+          "$ref" : "#/definitions/CashAccount38"
+        },
+        "chrgsAcctAgt" : {
+          "$ref" : "#/definitions/BranchAndFinancialInstitutionIdentification6"
+        },
+        "ctrlSum" : {
+          "$ref" : "#/definitions/DecimalNumber"
+        },
+        "dbtr" : {
+          "$ref" : "#/definitions/PartyIdentification135"
+        },
+        "dbtrAcct" : {
+          "$ref" : "#/definitions/CashAccount38"
+        },
+        "dbtrAgt" : {
+          "$ref" : "#/definitions/BranchAndFinancialInstitutionIdentification6"
+        },
+        "dbtrAgtAcct" : {
+          "$ref" : "#/definitions/CashAccount38"
+        },
+        "instrForDbtrAgt" : {
+          "$ref" : "#/definitions/Max140Text"
+        },
+        "nbOfTxs" : {
+          "$ref" : "#/definitions/Max15NumericText"
+        },
+        "pmtInfId" : {
+          "$ref" : "#/definitions/Max35Text"
+        },
+        "pmtMtd" : {
+          "$ref" : "#/definitions/PaymentMethod3Code"
+        },
+        "pmtTpInf" : {
+          "$ref" : "#/definitions/PaymentTypeInformation26"
+        },
+        "poolgAdjstmntDt" : {
+          "$ref" : "#/definitions/ISODate"
+        },
+        "reqdAdvcTp" : {
+          "$ref" : "#/definitions/AdviceType1"
+        },
+        "reqdExctnDt" : {
+          "$ref" : "#/definitions/DateAndDateTime2Choice"
+        },
+        "ultmtDbtr" : {
+          "$ref" : "#/definitions/PartyIdentification135"
+        }
+      }
+    },
+    "PaymentMethod3Code" : {
+      "type" : "string",
+      "enum" : [ "CHK", "TRF", "TRA" ]
+    },
+    "PaymentTypeInformation26" : {
+      "type" : "object",
+      "properties" : {
+        "ctgyPurp" : {
+          "$ref" : "#/definitions/CategoryPurpose1Choice"
+        },
+        "instrPrty" : {
+          "$ref" : "#/definitions/Priority2Code"
+        },
+        "lclInstrm" : {
+          "$ref" : "#/definitions/LocalInstrument2Choice"
+        },
+        "svcLvl" : {
+          "type" : "array",
+          "items" : {
+            "$ref" : "#/definitions/ServiceLevel8Choice"
+          },
+          "x-ing-type" : "array"
+        }
+      }
+    },
+    "RegulatoryAuthority2" : {
+      "type" : "object",
+      "properties" : {
+        "ctry" : {
+          "$ref" : "#/definitions/CountryCode"
+        },
+        "nm" : {
+          "$ref" : "#/definitions/Max140Text"
+        }
+      }
+    },
+    "RegulatoryReporting3" : {
+      "type" : "object",
+      "properties" : {
+        "authrty" : {
+          "$ref" : "#/definitions/RegulatoryAuthority2"
+        },
+        "dbtCdtRptgInd" : {
+          "$ref" : "#/definitions/RegulatoryReportingType1Code"
+        },
+        "dtls" : {
+          "type" : "array",
+          "items" : {
+            "$ref" : "#/definitions/StructuredRegulatoryReporting3"
+          },
+          "x-ing-type" : "array"
+        }
+      }
+    },
+    "RegulatoryReportingType1Code" : {
+      "type" : "string",
+      "enum" : [ "CRED", "DEBT", "BOTH" ]
+    },
+    "RemittanceLocation7" : {
+      "type" : "object",
+      "properties" : {
+        "rmtId" : {
+          "$ref" : "#/definitions/Max35Text"
+        },
+        "rmtLctnDtls" : {
+          "type" : "array",
+          "items" : {
+            "$ref" : "#/definitions/RemittanceLocationData1"
+          },
+          "x-ing-type" : "array"
+        }
+      }
+    },
+    "RemittanceLocationData1" : {
+      "type" : "object",
+      "required" : [ "mtd" ],
+      "properties" : {
+        "elctrncAdr" : {
+          "$ref" : "#/definitions/Max2048Text"
+        },
+        "mtd" : {
+          "$ref" : "#/definitions/RemittanceLocationMethod2Code"
+        },
+        "pstlAdr" : {
+          "$ref" : "#/definitions/NameAndAddress16"
+        }
+      }
+    },
+    "RemittanceLocationMethod2Code" : {
+      "type" : "string",
+      "enum" : [ "FAXI", "EDIC", "URID", "EMAL", "POST", "SMSM" ]
+    },
+    "StructuredRegulatoryReporting3" : {
+      "type" : "object",
+      "properties" : {
+        "amt" : {
+          "$ref" : "#/definitions/ActiveOrHistoricCurrencyAndAmount"
+        },
+        "cd" : {
+          "$ref" : "#/definitions/Max10Text"
+        },
+        "ctry" : {
+          "$ref" : "#/definitions/CountryCode"
+        },
+        "dt" : {
+          "$ref" : "#/definitions/ISODate"
+        },
+        "inf" : {
+          "type" : "array",
+          "items" : {
+            "$ref" : "#/definitions/Max35Text"
+          },
+          "x-ing-type" : "array"
+        },
+        "tp" : {
+          "$ref" : "#/definitions/Max35Text"
+        }
+      }
+    },
+    "SupplementaryData2WithoutSpp" : {
+      "type" : "object",
+      "required" : [ "envlp" ],
+      "properties" : {
+        "envlp" : {
+          "$ref" : "#/definitions/SupplementaryDataEnvelope2WithoutSpp"
+        },
+        "plcAndNm" : {
+          "$ref" : "#/definitions/Max350Text"
+        }
+      },
+      "additionalProperties" : false
+    },
+    "TaxInformation8" : {
+      "type" : "object",
+      "properties" : {
+        "admstnZone" : {
+          "$ref" : "#/definitions/Max35Text"
+        },
+        "cdtr" : {
+          "$ref" : "#/definitions/TaxParty1"
+        },
+        "dbtr" : {
+          "$ref" : "#/definitions/TaxParty2"
+        },
+        "dt" : {
+          "$ref" : "#/definitions/ISODate"
+        },
+        "mtd" : {
+          "$ref" : "#/definitions/Max35Text"
+        },
+        "rcrd" : {
+          "type" : "array",
+          "items" : {
+            "$ref" : "#/definitions/TaxRecord2"
+          },
+          "x-ing-type" : "array"
+        },
+        "refNb" : {
+          "$ref" : "#/definitions/Max140Text"
+        },
+        "seqNb" : {
+          "$ref" : "#/definitions/Number"
+        },
+        "ttlTaxAmt" : {
+          "$ref" : "#/definitions/ActiveOrHistoricCurrencyAndAmount"
+        },
+        "ttlTaxblBaseAmt" : {
+          "$ref" : "#/definitions/ActiveOrHistoricCurrencyAndAmount"
+        }
+      }
+    },
+    "SupplementaryDataEnvelope2WithoutSpp" : {
+      "type" : "object",
+      "additionalProperties" : false
+    }
+  }
+}
