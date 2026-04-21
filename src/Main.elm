@@ -1,6 +1,7 @@
-module Main exposing (main)
+port module Main exposing (main)
 
 import Browser
+import Char
 import File
 import Html exposing (Html, div, text)
 import Html.Attributes as Attr
@@ -11,8 +12,17 @@ import Json.Schema
 import Json.Schema.Decode
 import Process
 import Render.Svg as Render exposing (HoverState, NodeMeta)
+import Render.Theme as Theme
 import Set exposing (Set)
 import Task
+
+
+port downloadSvg :
+    { filename : String
+    , colorMap : List ( String, String )
+    , bgColor : String
+    }
+    -> Cmd msg
 
 
 type ExampleSchema
@@ -52,6 +62,7 @@ type Msg
     | HoverNode HoverState
     | UnhoverNode
     | EditorScrolled Float Float
+    | DownloadSvg
 
 
 main : Program () Model Msg
@@ -217,6 +228,15 @@ update msg model =
         UnhoverNode ->
             ( { model | hoveredNode = Nothing }, Cmd.none )
 
+        DownloadSvg ->
+            ( model
+            , downloadSvg
+                { filename = svgFilename model
+                , colorMap = Theme.colorMap
+                , bgColor = Theme.exportBackground
+                }
+            )
+
         NoOp ->
             ( model, Cmd.none )
 
@@ -255,6 +275,7 @@ viewToolbar model =
                 ]
             ]
         , viewExampleButtons model.selectedExample
+        , viewDownloadButton model
         , viewCollapseToggle model.panelCollapsed
         ]
 
@@ -282,6 +303,29 @@ exampleButton example label selected =
         , Html.Events.onClick (ExampleSelected example)
         ]
         [ text label ]
+
+
+viewDownloadButton : Model -> Html Msg
+viewDownloadButton model =
+    let
+        hasSchema =
+            case ( model.parsedSchema, model.lastValidSchema ) of
+                ( Ok _, _ ) ->
+                    True
+
+                ( Err _, Just _ ) ->
+                    True
+
+                _ ->
+                    False
+    in
+    Html.button
+        [ Attr.class "toolbar-btn download-btn"
+        , Attr.disabled (not hasSchema)
+        , Attr.title "Download diagram as SVG"
+        , Html.Events.onClick DownloadSvg
+        ]
+        [ text "Save SVG" ]
 
 
 viewCollapseToggle : Bool -> Html Msg
@@ -431,6 +475,92 @@ viewEditorStatus model lineCount =
         , Html.span [ Attr.class ("es-status " ++ statusClass) ]
             [ text statusLabel ]
         ]
+
+
+svgFilename : Model -> String
+svgFilename model =
+    let
+        source =
+            case model.parsedSchema of
+                Ok spec ->
+                    Just spec
+
+                Err _ ->
+                    model.lastValidSchema
+
+        slug =
+            source
+                |> Maybe.andThen (\spec -> rootTitle spec.schema)
+                |> Maybe.map toKebab
+                |> Maybe.andThen nonEmpty
+                |> Maybe.withDefault "schema"
+    in
+    slug ++ ".svg"
+
+
+rootTitle : Json.Schema.Schema -> Maybe String
+rootTitle schema =
+    case schema of
+        Json.Schema.Object { title } ->
+            title
+
+        Json.Schema.Array { title } ->
+            title
+
+        Json.Schema.String { title } ->
+            title
+
+        Json.Schema.Integer { title } ->
+            title
+
+        Json.Schema.Number { title } ->
+            title
+
+        Json.Schema.Boolean { title } ->
+            title
+
+        Json.Schema.Null { title } ->
+            title
+
+        Json.Schema.Ref { title } ->
+            title
+
+        Json.Schema.OneOf { title } ->
+            title
+
+        Json.Schema.AnyOf { title } ->
+            title
+
+        Json.Schema.AllOf { title } ->
+            title
+
+        Json.Schema.Fallback _ ->
+            Nothing
+
+
+toKebab : String -> String
+toKebab s =
+    s
+        |> String.toLower
+        |> String.map
+            (\c ->
+                if Char.isAlphaNum c then
+                    c
+
+                else
+                    ' '
+            )
+        |> String.words
+        |> String.join "-"
+
+
+nonEmpty : String -> Maybe String
+nonEmpty s =
+    if String.isEmpty s then
+        Nothing
+
+    else
+        Just s
 
 
 formatThousands : Int -> String

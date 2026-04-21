@@ -16,7 +16,63 @@
     <div id="root"></div>
     <script src="elm.js"></script>
     <script>
-        Elm.Main.init({ node: document.getElementById('root') });
+        var app = Elm.Main.init({ node: document.getElementById('root') });
+
+        // ---- SVG download -------------------------------------------------
+        // The on-screen SVG is rendered with the dark blueprint palette. For
+        // export we swap every matching fill/stroke to its light counterpart
+        // and prepend a white background rect so the file reads correctly
+        // in viewers that assume transparency.
+        var SVG_NS = 'http://www.w3.org/2000/svg';
+        var COLOR_ATTRS = ['fill', 'stroke'];
+
+        app.ports.downloadSvg.subscribe(function (args) {
+            var svg = document.getElementById('schema-svg');
+            if (!svg) return;
+            var clone = svg.cloneNode(true);
+            clone.setAttribute('xmlns', SVG_NS);
+            clone.setAttribute('xmlns:xlink', 'http://www.w3.org/1999/xlink');
+
+            var substitutions = {};
+            (args.colorMap || []).forEach(function (pair) {
+                substitutions[pair[0]] = pair[1];
+            });
+
+            var nodes = clone.querySelectorAll('*');
+            for (var i = 0; i < nodes.length; i++) {
+                var el = nodes[i];
+                for (var a = 0; a < COLOR_ATTRS.length; a++) {
+                    var attr = COLOR_ATTRS[a];
+                    var val = el.getAttribute(attr);
+                    if (val && Object.prototype.hasOwnProperty.call(substitutions, val)) {
+                        el.setAttribute(attr, substitutions[val]);
+                    }
+                }
+            }
+
+            var vb = (clone.getAttribute('viewBox') || '').split(/\s+/);
+            if (vb.length === 4) {
+                var bg = document.createElementNS(SVG_NS, 'rect');
+                bg.setAttribute('x', vb[0]);
+                bg.setAttribute('y', vb[1]);
+                bg.setAttribute('width', vb[2]);
+                bg.setAttribute('height', vb[3]);
+                bg.setAttribute('fill', args.bgColor || '#ffffff');
+                clone.insertBefore(bg, clone.firstChild);
+            }
+
+            var serialized = new XMLSerializer().serializeToString(clone);
+            var payload = '<?xml version="1.0" encoding="UTF-8"?>\n' + serialized;
+            var blob = new Blob([payload], { type: 'image/svg+xml;charset=utf-8' });
+            var url = URL.createObjectURL(blob);
+            var a = document.createElement('a');
+            a.href = url;
+            a.download = args.filename || 'schema.svg';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        });
     </script>
 </body>
 </html>

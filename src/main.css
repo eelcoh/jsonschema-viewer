@@ -301,7 +301,8 @@ body {
  * Collapse toggle                                                     *
  * ------------------------------------------------------------------ */
 
-.collapse-toggle {
+.collapse-toggle,
+.toolbar-btn {
     height: 32px;
     padding: 0 14px;
     border: 1px solid var(--bp-line);
@@ -317,10 +318,21 @@ body {
     transition: color 140ms ease, border-color 140ms ease, background-color 140ms ease;
 }
 
-.collapse-toggle:hover {
+.collapse-toggle:hover,
+.toolbar-btn:hover:not(:disabled) {
     color: var(--bp-text);
     border-color: var(--bp-cyan-dim);
     background: var(--bp-surface);
+}
+
+.toolbar-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.download-btn:hover:not(:disabled) {
+    color: var(--bp-amber);
+    border-color: var(--bp-amber-dim);
 }
 
 /* ------------------------------------------------------------------ *
