@@ -1,110 +1,66 @@
-module Render.Theme exposing
-    ( background
-    , connector
-    , errorDetailBg
-    , errorHeading
-    , errorText
-    , gridDot
-    , iconChipBg
-    , iconText
-    , nodeBorder
-    , nodeBorderSubtle
-    , nodeFill
-    , nodeText
-    , overlayBg
-    , overlayBorder
-    , overlayKeyText
-    , refBorder
-    , requiredBorder
-    , requiredStrip
-    )
+module Render.Theme exposing (Theme, colorMap, dark, exportBackground, light)
 
 
-background : String
-background =
-    "#0b1420"
+type alias Theme =
+    { nodeBorder : String
+    , nodeBorderSubtle : String
+    , nodeFill : String
+    , nodeText : String
+    , iconText : String
+    , iconChipBg : String
+    , connector : String
+    , requiredStrip : String
+    }
 
 
-gridDot : String
-gridDot =
-    "#1b2f47"
+dark : Theme
+dark =
+    { nodeBorder = "#5a8fb0"
+    , nodeBorderSubtle = "#365d7a"
+    , nodeFill = "transparent"
+    , nodeText = "#eaf1f8"
+    , iconText = "#8fc8ea"
+    , iconChipBg = "rgba(143, 200, 234, 0.06)"
+    , connector = "#365d7a"
+    , requiredStrip = "#e8a020"
+    }
 
 
-nodeBorder : String
-nodeBorder =
-    "#5a8fb0"
+light : Theme
+light =
+    { nodeBorder = "#2d5470"
+    , nodeBorderSubtle = "#6a8ba8"
+    , nodeFill = "transparent"
+    , nodeText = "#0e2233"
+    , iconText = "#1d4f70"
+    , iconChipBg = "rgba(29, 79, 112, 0.06)"
+    , connector = "#6a8ba8"
+    , requiredStrip = "#b07512"
+    }
 
 
-nodeBorderSubtle : String
-nodeBorderSubtle =
-    "#365d7a"
+exportBackground : String
+exportBackground =
+    "#ffffff"
 
 
-nodeFill : String
-nodeFill =
-    "transparent"
+{-| Substitutions (dark → light) for post-processing the exported SVG.
+The rendered SVG uses `dark` values as literal fill/stroke attributes;
+the download handler swaps each into its `light` counterpart.
+-}
+colorMap : List ( String, String )
+colorMap =
+    List.map (\f -> ( f dark, f light )) fields
 
 
-nodeText : String
-nodeText =
-    "#eaf1f8"
-
-
-iconText : String
-iconText =
-    "#8fc8ea"
-
-
-iconChipBg : String
-iconChipBg =
-    "rgba(143, 200, 234, 0.06)"
-
-
-connector : String
-connector =
-    "#365d7a"
-
-
-refBorder : String
-refBorder =
-    "#5a8fb0"
-
-
-errorHeading : String
-errorHeading =
-    "#ff8591"
-
-
-errorText : String
-errorText =
-    "#c8d8e8"
-
-
-errorDetailBg : String
-errorDetailBg =
-    "#0f1822"
-
-
-requiredBorder : String
-requiredBorder =
-    "#e8a020"
-
-
-requiredStrip : String
-requiredStrip =
-    "#e8a020"
-
-
-overlayBg : String
-overlayBg =
-    "#0f1e30"
-
-
-overlayBorder : String
-overlayBorder =
-    "#3a5a7a"
-
-
-overlayKeyText : String
-overlayKeyText =
-    "#8ab0d0"
+fields : List (Theme -> String)
+fields =
+    [ .nodeBorder
+    , .nodeBorderSubtle
+    , .nodeFill
+    , .nodeText
+    , .iconText
+    , .iconChipBg
+    , .connector
+    , .requiredStrip
+    ]

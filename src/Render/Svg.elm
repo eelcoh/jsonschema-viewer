@@ -583,7 +583,7 @@ roundRect txt ( x, y ) =
                 |> String.fromFloat
 
         fg =
-            Theme.iconText
+            Theme.dark.iconText
                 |> SvgA.fill
 
         caption c =
@@ -608,8 +608,8 @@ roundRect txt ( x, y ) =
                 , SvgA.y (String.fromFloat y)
                 , SvgA.width wRect
                 , SvgA.height (String.fromFloat pillHeight)
-                , SvgA.fill Theme.iconChipBg
-                , SvgA.stroke Theme.nodeBorder
+                , SvgA.fill Theme.dark.iconChipBg
+                , SvgA.stroke Theme.dark.nodeBorder
                 , SvgA.strokeWidth "1"
                 , SvgA.rx "3"
                 , SvgA.ry "3"
@@ -773,8 +773,8 @@ iconRect icon txt weight isRequired ( x, y ) =
                  , SvgA.y (String.fromFloat y)
                  , SvgA.width wRect
                  , SvgA.height (String.fromFloat pillHeight)
-                 , SvgA.fill Theme.nodeFill
-                 , SvgA.stroke Theme.nodeBorder
+                 , SvgA.fill Theme.dark.nodeFill
+                 , SvgA.stroke Theme.dark.nodeBorder
                  , SvgA.strokeWidth "1"
                  , SvgA.rx "3"
                  , SvgA.ry "3"
@@ -789,7 +789,7 @@ iconRect icon txt weight isRequired ( x, y ) =
                 , SvgA.y (String.fromFloat y)
                 , SvgA.width (String.fromFloat iconChamberWidth)
                 , SvgA.height (String.fromFloat pillHeight)
-                , SvgA.fill Theme.iconChipBg
+                , SvgA.fill Theme.dark.iconChipBg
                 , SvgA.rx "3"
                 , SvgA.ry "3"
                 ]
@@ -802,7 +802,7 @@ iconRect icon txt weight isRequired ( x, y ) =
                     , SvgA.y (String.fromFloat (y + 1))
                     , SvgA.width "2"
                     , SvgA.height (String.fromFloat (pillHeight - 2))
-                    , SvgA.fill Theme.requiredStrip
+                    , SvgA.fill Theme.dark.requiredStrip
                     , SvgA.rx "1"
                     , SvgA.ry "1"
                     ]
@@ -832,7 +832,7 @@ viewNameGraph weight ( x, y ) name =
             computeTextWidth name
 
         fg =
-            Theme.nodeText
+            Theme.dark.nodeText
                 |> SvgA.fill
 
         caption c =
@@ -878,7 +878,7 @@ separatorGraph ( x, y ) =
                 |> String.fromFloat
 
         strokeColor =
-            Theme.nodeBorderSubtle
+            Theme.dark.nodeBorderSubtle
                 |> SvgA.stroke
 
         strokeWidth =
@@ -917,7 +917,7 @@ iconGraph icon ( x, y ) =
                 ++ ")"
 
         color =
-            Theme.iconText
+            Theme.dark.iconText
 
         graph =
             Svg.g
@@ -1182,7 +1182,7 @@ connectorPath : Coordinates -> Coordinates -> Svg msg
 connectorPath start end =
     Svg.path
         [ SvgA.d (connectorPathD start end)
-        , SvgA.stroke Theme.connector
+        , SvgA.stroke Theme.dark.connector
         , SvgA.strokeWidth "1"
         , SvgA.strokeOpacity "0.65"
         , SvgA.strokeLinecap "round"
