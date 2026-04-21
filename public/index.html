@@ -73,6 +73,66 @@
             document.body.removeChild(a);
             URL.revokeObjectURL(url);
         });
+
+        // ---- Tab / Shift-Tab handling in the schema editor ---------------
+        // Intercepts Tab/Shift-Tab in .schema-textarea, mutates the value in
+        // place, then dispatches a synthetic `input` event so Elm's onInput
+        // picks up the new text via its normal update cycle.
+        var INDENT = '  ';
+
+        document.addEventListener('keydown', function (e) {
+            if (e.key !== 'Tab') return;
+            var ta = e.target;
+            if (!ta || !ta.classList || !ta.classList.contains('schema-textarea')) return;
+            e.preventDefault();
+
+            var start = ta.selectionStart;
+            var end = ta.selectionEnd;
+            var value = ta.value;
+
+            if (!e.shiftKey && start === end) {
+                ta.setRangeText(INDENT, start, end, 'end');
+                ta.dispatchEvent(new Event('input', { bubbles: true }));
+                return;
+            }
+
+            // Line-based operation: work on every line the selection touches.
+            var lineStart = value.lastIndexOf('\n', start - 1) + 1;
+            // If the selection ends right at a line break, don't pull the
+            // next (untouched) line into the operation.
+            var effectiveEnd = (end > start && value.charAt(end - 1) === '\n') ? end - 1 : end;
+            var nextNL = value.indexOf('\n', effectiveEnd);
+            var lineEnd = nextNL === -1 ? value.length : nextNL;
+
+            var block = value.substring(lineStart, lineEnd);
+            var lines = block.split('\n');
+            var firstDelta = 0;
+            var totalDelta = 0;
+            var newLines;
+
+            if (e.shiftKey) {
+                newLines = lines.map(function (line, i) {
+                    var removed = 0;
+                    if (line.startsWith(INDENT)) removed = INDENT.length;
+                    else if (line.charAt(0) === ' ' || line.charAt(0) === '\t') removed = 1;
+                    if (i === 0) firstDelta = -removed;
+                    totalDelta -= removed;
+                    return line.substring(removed);
+                });
+            } else {
+                newLines = lines.map(function (line, i) {
+                    if (i === 0) firstDelta = INDENT.length;
+                    totalDelta += INDENT.length;
+                    return INDENT + line;
+                });
+            }
+
+            ta.setRangeText(newLines.join('\n'), lineStart, lineEnd, 'preserve');
+            var newStart = Math.max(lineStart, start + firstDelta);
+            var newEnd = Math.max(newStart, end + totalDelta);
+            ta.setSelectionRange(newStart, newEnd);
+            ta.dispatchEvent(new Event('input', { bubbles: true }));
+        });
     </script>
 </body>
 </html>

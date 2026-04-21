@@ -6,6 +6,7 @@ import File
 import Html exposing (Html, div, text)
 import Html.Attributes as Attr
 import Html.Events
+import Html.Lazy
 import Json.Decode exposing (decodeString)
 import Json.Highlight
 import Json.Schema
@@ -98,13 +99,19 @@ init _ =
       , panelCollapsed = False
       , selectedExample = ExampleArrays
       , dragHover = False
-      , collapsedNodes = Set.empty
+      , collapsedNodes = defaultCollapsedFor initialText
       , hoveredNode = Nothing
       , editorScrollTop = 0
       , editorScrollLeft = 0
       }
     , Cmd.none
     )
+
+
+defaultCollapsedFor : String -> Set String
+defaultCollapsedFor source =
+    decodeString Json.Schema.Decode.initialCollapsedPaths source
+        |> Result.withDefault Set.empty
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -132,7 +139,7 @@ update msg model =
                 , lastValidSchema = newLastValid
                 , debounceGeneration = newGen
                 , displayErrors = False
-                , collapsedNodes = Set.empty
+                , collapsedNodes = defaultCollapsedFor newText
                 , hoveredNode = Nothing
               }
             , Process.sleep 800
@@ -169,7 +176,7 @@ update msg model =
                 , parsedSchema = parsed
                 , lastValidSchema = newLastValid
                 , displayErrors = True
-                , collapsedNodes = Set.empty
+                , collapsedNodes = defaultCollapsedFor content
                 , hoveredNode = Nothing
                 , editorScrollTop = 0
                 , editorScrollLeft = 0
@@ -197,7 +204,7 @@ update msg model =
                             model.lastValidSchema
                 , selectedExample = example
                 , displayErrors = False
-                , collapsedNodes = Set.empty
+                , collapsedNodes = defaultCollapsedFor content
                 , hoveredNode = Nothing
                 , editorScrollTop = 0
                 , editorScrollLeft = 0
@@ -374,9 +381,6 @@ viewEditor model =
         lineCount =
             countLines model.inputText
 
-        tokens =
-            Json.Highlight.tokenize model.inputText
-
         translate =
             "translate("
                 ++ String.fromFloat (negate model.editorScrollLeft)
@@ -396,9 +400,7 @@ viewEditor model =
                     , Attr.attribute "aria-hidden" "true"
                     , Attr.style "transform" translate
                     ]
-                    (Json.Highlight.tokensToHtml tokens
-                        ++ [ Html.span [ Attr.class "tk-eof" ] [ text "\n" ] ]
-                    )
+                    [ Html.Lazy.lazy viewSyntaxContent model.inputText ]
                 , Html.textarea
                     [ Attr.class "schema-textarea"
                     , Attr.value model.inputText
@@ -414,6 +416,18 @@ viewEditor model =
             ]
         , viewEditorStatus model lineCount
         ]
+
+
+{-| Expensive: tokenizes the entire source and emits one span per token.
+Wrapped in `Html.Lazy.lazy` so hover/toggle updates don't re-run it.
+-}
+viewSyntaxContent : String -> Html Msg
+viewSyntaxContent source =
+    Html.span
+        [ Attr.class "tk-content" ]
+        (Json.Highlight.tokensToHtml (Json.Highlight.tokenize source)
+            ++ [ Html.span [ Attr.class "tk-eof" ] [ text "\n" ] ]
+        )
 
 
 viewGutter : String -> Int -> Html msg
@@ -585,6 +599,15 @@ formatThousands n =
         |> String.fromList
 
 
+{-| Wrapper that bakes in the stable Msg constructors so the diagram view can
+be memoized via `Html.Lazy.lazy3` on just the data arguments that actually
+change between renders.
+-}
+renderDiagram : Set String -> Json.Schema.Definitions -> Json.Schema.Schema -> Html Msg
+renderDiagram collapsed defs schema =
+    Render.view ToggleNode HoverNode UnhoverNode collapsed defs schema
+
+
 viewDiagramPanel : Model -> Html Msg
 viewDiagramPanel model =
     div
@@ -598,7 +621,7 @@ viewDiagramPanel model =
             ]
         , case model.parsedSchema of
             Ok spec ->
-                Render.view ToggleNode HoverNode UnhoverNode model.collapsedNodes spec.definitions spec.schema
+                Html.Lazy.lazy3 renderDiagram model.collapsedNodes spec.definitions spec.schema
 
             Err e ->
                 if model.displayErrors then
@@ -607,7 +630,7 @@ viewDiagramPanel model =
                 else
                     case model.lastValidSchema of
                         Just spec ->
-                            Render.view ToggleNode HoverNode UnhoverNode model.collapsedNodes spec.definitions spec.schema
+                            Html.Lazy.lazy3 renderDiagram model.collapsedNodes spec.definitions spec.schema
 
                         Nothing ->
                             viewError e
