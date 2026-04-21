@@ -69,17 +69,34 @@ iconSize =
 
 hSpace : Float
 hSpace =
-    8
+    24
+
+
+{-| Gap between the icon chamber and the name text inside a pill.
+Kept separate from `hSpace` so connector lengths are unaffected.
+-}
+iconTextGap : Float
+iconTextGap =
+    12
 
 
 {-| Font stack for all SVG text. Consolas is the primary choice because
 it ships with Microsoft Office on both Windows and macOS, so the exported
-SVG renders faithfully when embedded in PowerPoint. DM Mono is retained
-as a fallback so in-browser rendering still picks it up when available.
+SVG renders faithfully when embedded in PowerPoint.
 -}
 svgFontFamily : String
 svgFontFamily =
     "Consolas, 'Menlo', 'DM Mono', 'Courier New', ui-monospace, monospace"
+
+
+{-| Corner radius for connector elbows. Mirrors the pill corner radius
+(`rx="3"` on `iconRect`) so bends and pills feel like the same language.
+`hSpace` must leave at least `2 * connectorCornerR` of horizontal room
+for the two corners.
+-}
+connectorCornerR : Float
+connectorCornerR =
+    3
 
 
 fontSize : Float
@@ -117,7 +134,8 @@ view toggleMsg hoverMsg unhoverMsg collapsedNodes defs schema =
             viewBoxString w h padding
     in
     Svg.svg
-        [ SvgA.width (String.fromFloat svgW)
+        [ SvgA.id "schema-svg"
+        , SvgA.width (String.fromFloat svgW)
         , SvgA.height (String.fromFloat svgH)
         , SvgA.viewBox vb
         , SvgA.style "display: block;"
@@ -739,7 +757,7 @@ iconRect icon txt weight isRequired ( x, y ) =
             separatorGraph ( iconW + hSpace, y )
 
         mNameG =
-            Maybe.map (viewNameGraph weight ( separatorW + hSpace, y )) txt
+            Maybe.map (viewNameGraph weight ( separatorW + iconTextGap, y )) txt
 
         ( graphs, rectWidth, iconChamberWidth ) =
             case mNameG of
@@ -1142,9 +1160,9 @@ computeHorizontalText x txt =
 
 
 {-| Vertical position for SVG `<text>` nodes whose y is treated as the
-alphabetic baseline — the default in every renderer, including PowerPoint.
+alphabetic baseline (the default in every renderer, including PowerPoint).
 We used to rely on `dominantBaseline="middle"`, but PowerPoint ignores that
-attribute and falls back to alphabetic, which rendered the text above the
+attribute and falls back to alphabetic — which rendered the text above the
 pill's vertical centre. Computing the baseline ourselves keeps web + PPT
 in sync. The `0.36 * fontSize` offset approximates half the cap-height so
 the glyph body lands on the pill centre.
@@ -1156,26 +1174,58 @@ computeVerticalText y =
 
 connectorPathD : Coordinates -> Coordinates -> String
 connectorPathD ( startX, startY ) ( endX, endY ) =
-    let
-        hOffset =
-            (endX - startX) * 0.5
-    in
-    "M "
-        ++ String.fromFloat startX
-        ++ " "
-        ++ String.fromFloat startY
-        ++ " C "
-        ++ String.fromFloat (startX + hOffset)
-        ++ " "
-        ++ String.fromFloat startY
-        ++ " "
-        ++ String.fromFloat (endX - hOffset)
-        ++ " "
-        ++ String.fromFloat endY
-        ++ " "
-        ++ String.fromFloat endX
-        ++ " "
-        ++ String.fromFloat endY
+    if startY == endY then
+        "M "
+            ++ String.fromFloat startX
+            ++ " "
+            ++ String.fromFloat startY
+            ++ " H "
+            ++ String.fromFloat endX
+
+    else
+        let
+            midX =
+                (startX + endX) / 2
+
+            ySign =
+                if endY > startY then
+                    1
+
+                else
+                    -1
+
+            firstCornerY =
+                startY + ySign * connectorCornerR
+
+            secondCornerY =
+                endY - ySign * connectorCornerR
+        in
+        "M "
+            ++ String.fromFloat startX
+            ++ " "
+            ++ String.fromFloat startY
+            ++ " H "
+            ++ String.fromFloat (midX - connectorCornerR)
+            ++ " Q "
+            ++ String.fromFloat midX
+            ++ " "
+            ++ String.fromFloat startY
+            ++ " "
+            ++ String.fromFloat midX
+            ++ " "
+            ++ String.fromFloat firstCornerY
+            ++ " V "
+            ++ String.fromFloat secondCornerY
+            ++ " Q "
+            ++ String.fromFloat midX
+            ++ " "
+            ++ String.fromFloat endY
+            ++ " "
+            ++ String.fromFloat (midX + connectorCornerR)
+            ++ " "
+            ++ String.fromFloat endY
+            ++ " H "
+            ++ String.fromFloat endX
 
 
 connectorPath : Coordinates -> Coordinates -> Svg msg
