@@ -72,6 +72,16 @@ hSpace =
     8
 
 
+{-| Font stack for all SVG text. Consolas is the primary choice because
+it ships with Microsoft Office on both Windows and macOS, so the exported
+SVG renders faithfully when embedded in PowerPoint. DM Mono is retained
+as a fallback so in-browser rendering still picks it up when available.
+-}
+svgFontFamily : String
+svgFontFamily =
+    "Consolas, 'Menlo', 'DM Mono', 'Courier New', ui-monospace, monospace"
+
+
 fontSize : Float
 fontSize =
     11
@@ -582,10 +592,9 @@ roundRect txt ( x, y ) =
                     [ SvgA.x mt
                     , SvgA.y tt
                     , fg
-                    , SvgA.fontFamily "'DM Mono', ui-monospace, monospace"
+                    , SvgA.fontFamily svgFontFamily
                     , SvgA.fontSize (String.fromFloat fontSize)
                     , SvgA.fontWeight "500"
-                    , SvgA.dominantBaseline "middle"
                     , SvgA.cursor "pointer"
                     ]
             in
@@ -832,10 +841,9 @@ viewNameGraph weight ( x, y ) name =
                     [ SvgA.x (String.fromFloat mt)
                     , SvgA.y (String.fromFloat tt)
                     , fg
-                    , SvgA.fontFamily "'DM Mono', ui-monospace, monospace"
+                    , SvgA.fontFamily svgFontFamily
                     , SvgA.fontSize (String.fromFloat fontSize)
                     , SvgA.fontWeight weight
-                    , SvgA.dominantBaseline "middle"
                     , SvgA.cursor "pointer"
                     ]
             in
@@ -1085,11 +1093,10 @@ digitIcon color digit =
         []
     , Svg.text_
         [ SvgA.x "7"
-        , SvgA.y "7"
+        , SvgA.y "9.7"
         , SvgA.textAnchor "middle"
-        , SvgA.dominantBaseline "middle"
         , SvgA.fill color
-        , SvgA.fontFamily "'DM Mono', ui-monospace, monospace"
+        , SvgA.fontFamily svgFontFamily
         , SvgA.fontSize "7.5"
         , SvgA.fontWeight "600"
         ]
@@ -1101,11 +1108,10 @@ customTextIcon : String -> String -> List (Svg msg)
 customTextIcon color txt =
     [ Svg.text_
         [ SvgA.x "7"
-        , SvgA.y "7.5"
+        , SvgA.y "9.85"
         , SvgA.textAnchor "middle"
-        , SvgA.dominantBaseline "middle"
         , SvgA.fill color
-        , SvgA.fontFamily "'DM Mono', ui-monospace, monospace"
+        , SvgA.fontFamily svgFontFamily
         , SvgA.fontSize "6.5"
         , SvgA.fontWeight "500"
         , SvgA.textLength "12"
@@ -1135,9 +1141,17 @@ computeHorizontalText x txt =
     x + (textWidth / 2)
 
 
+{-| Vertical position for SVG `<text>` nodes whose y is treated as the
+alphabetic baseline — the default in every renderer, including PowerPoint.
+We used to rely on `dominantBaseline="middle"`, but PowerPoint ignores that
+attribute and falls back to alphabetic, which rendered the text above the
+pill's vertical centre. Computing the baseline ourselves keeps web + PPT
+in sync. The `0.36 * fontSize` offset approximates half the cap-height so
+the glyph body lands on the pill centre.
+-}
 computeVerticalText : Float -> Float
 computeVerticalText y =
-    y + halfPill + 0.5
+    y + halfPill + (fontSize * 0.36)
 
 
 connectorPathD : Coordinates -> Coordinates -> String
