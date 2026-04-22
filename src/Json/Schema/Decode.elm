@@ -707,6 +707,8 @@ oasCollapsedPathsDecoder =
         [ collapseForSection "Schemas" schemasNamesDecoder
         , collapseForSection "Paths" (namesAt [ "paths" ])
         , collapseForSection "Webhooks" (namesAt [ "webhooks" ])
+        , collapseVerbsForSection "Paths" [ "paths" ]
+        , collapseVerbsForSection "Webhooks" [ "webhooks" ]
         , collapseForSection "Parameters" (unionNames [ [ "components", "parameters" ], [ "parameters" ] ])
         , collapseForSection "Request Bodies" (namesAt [ "components", "requestBodies" ])
         , collapseForSection "Responses" (unionNames [ [ "components", "responses" ], [ "responses" ] ])
@@ -723,6 +725,42 @@ collapseForSection : String -> Decoder (List String) -> Decoder (List String)
 collapseForSection sectionName namesDecoder =
     namesDecoder
         |> map (List.map (\n -> "root.properties." ++ sectionName ++ ".properties." ++ n))
+
+
+{-| Collapse each operation (verb) under each path item so that opening a
+path reveals the verb pills as closed — the viewer stops at the "top level
+of the endpoints" rather than exploding the full parameters/requestBody/
+responses tree in one click.
+-}
+collapseVerbsForSection : String -> List String -> Decoder (List String)
+collapseVerbsForSection sectionName atPath =
+    let
+        knownVerbs =
+            [ "get", "put", "post", "delete", "options", "head", "patch", "trace" ]
+
+        verbKeys : Decoder (List String)
+        verbKeys =
+            keyValuePairs value
+                |> map (List.map Tuple.first >> List.filter (\k -> List.member k knownVerbs))
+    in
+    namedPairsAt atPath verbKeys
+        |> map
+            (\pairs ->
+                List.concatMap
+                    (\( url, verbs ) ->
+                        List.map
+                            (\v ->
+                                "root.properties."
+                                    ++ sectionName
+                                    ++ ".properties."
+                                    ++ url
+                                    ++ ".properties."
+                                    ++ v
+                            )
+                            verbs
+                    )
+                    pairs
+            )
 
 
 schemasNamesDecoder : Decoder (List String)
