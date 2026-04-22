@@ -99,6 +99,23 @@ connectorCornerR =
     3
 
 
+{-| Horizontal distance from a parent pill's left edge to the vertical
+"trunk" that drops below it when children are stacked vertically.
+-}
+verticalTrunkOffset : Float
+verticalTrunkOffset =
+    halfPill
+
+
+{-| Horizontal distance from a parent pill's left edge to its children
+when children are stacked vertically below. Must be greater than
+`verticalTrunkOffset + connectorCornerR` so the elbow has room to bend.
+-}
+verticalChildIndent : Float
+verticalChildIndent =
+    hSpace
+
+
 fontSize : Float
 fontSize =
     11
@@ -184,6 +201,53 @@ viewProperties visited defs collapsedNodes config path parentRightX parentY coor
                         connector =
                             connectorPath
                                 ( parentRightX, parentY + halfPill )
+                                ( x, y + halfPill )
+
+                        ( gs, ( w2, h2 ), w3 ) =
+                            viewProps ( x, h1 + ySpace ) elements
+
+                        maxW =
+                            List.foldl Basics.max w1 [ w1, w2, w3 ]
+                    in
+                    ( connector :: g_ :: gs, ( x, h2 ), maxW )
+    in
+    ( g, ( w, h ) )
+
+
+{-| Vertical-below sibling layout: children are stacked directly underneath
+the parent pill, each reached by a short down-then-right elbow from a
+shared "trunk" hanging below the parent. Used inside the OpenAPI Paths
+and Webhooks sections so each URL and each verb list reads top-to-bottom.
+-}
+viewPropertiesBelow :
+    Set String
+    -> Definitions
+    -> Set String
+    -> ViewConfig msg
+    -> String
+    -> Float
+    -> Float
+    -> Coordinates
+    -> List Schema.ObjectProperty
+    -> ( List (Svg msg), Coordinates )
+viewPropertiesBelow visited defs collapsedNodes config path trunkX parentBottomY coords props =
+    let
+        ( g, ( _, h ), w ) =
+            viewProps coords props
+
+        viewProps (( x, y ) as coords_) elms =
+            case elms of
+                [] ->
+                    ( [], coords_, x )
+
+                element :: elements ->
+                    let
+                        ( g_, ( w1, h1 ) ) =
+                            viewProperty visited defs collapsedNodes config path coords_ element
+
+                        connector =
+                            connectorDownThenRight
+                                ( trunkX, parentBottomY )
                                 ( x, y + halfPill )
 
                         ( gs, ( w2, h2 ), w3 ) =
@@ -340,6 +404,22 @@ viewSchema visited defs collapsedNodes config path (( x, y ) as coords) name wei
             in
             if Set.member path collapsedNodes then
                 ( objectGraph, ( w, h ) )
+
+            else if shouldRenderChildrenBelow path && combinator == Nothing then
+                let
+                    trunkX =
+                        x + verticalTrunkOffset
+
+                    childStart =
+                        ( x + verticalChildIndent, h + ySpace )
+
+                    ( propertiesGraphs, ( pw, ph ) ) =
+                        viewPropertiesBelow visited defs collapsedNodes config path trunkX h childStart properties
+                in
+                ( objectGraph :: propertiesGraphs
+                , ( Basics.max w pw, Basics.max h ph )
+                )
+                    |> toSvgCoordsTuple
 
             else
                 let
@@ -1239,6 +1319,76 @@ connectorPath start end =
         , SvgA.fill "none"
         ]
         []
+
+
+{-| Connector that drops straight down from `start` then bends right to
+`end`. Used for the vertical-below children layout where the elbow hangs
+from the parent's underside, unlike `connectorPath` which bends at the
+midpoint of the horizontal run.
+-}
+connectorDownThenRight : Coordinates -> Coordinates -> Svg msg
+connectorDownThenRight ( startX, startY ) ( endX, endY ) =
+    let
+        d =
+            "M "
+                ++ String.fromFloat startX
+                ++ " "
+                ++ String.fromFloat startY
+                ++ " V "
+                ++ String.fromFloat (endY - connectorCornerR)
+                ++ " Q "
+                ++ String.fromFloat startX
+                ++ " "
+                ++ String.fromFloat endY
+                ++ " "
+                ++ String.fromFloat (startX + connectorCornerR)
+                ++ " "
+                ++ String.fromFloat endY
+                ++ " H "
+                ++ String.fromFloat endX
+    in
+    Svg.path
+        [ SvgA.d d
+        , SvgA.stroke Theme.dark.connector
+        , SvgA.strokeWidth "1"
+        , SvgA.strokeOpacity "0.65"
+        , SvgA.strokeLinecap "round"
+        , SvgA.fill "none"
+        ]
+        []
+
+
+{-| True for the four synthetic OpenAPI nodes that should stack children
+vertically below rather than to the right: the `Paths` section, each path
+item, the `Webhooks` section, and each webhook item. Children of verbs
+(parameters / requestBody / responses) and everything else resume the
+normal right-extending layout.
+-}
+shouldRenderChildrenBelow : String -> Bool
+shouldRenderChildrenBelow path =
+    path
+        == "root.properties.Paths"
+        || path
+        == "root.properties.Webhooks"
+        || isPathItemPath "Paths" path
+        || isPathItemPath "Webhooks" path
+
+
+isPathItemPath : String -> String -> Bool
+isPathItemPath section path =
+    let
+        prefix =
+            "root.properties." ++ section ++ ".properties."
+    in
+    if String.startsWith prefix path then
+        let
+            suffix =
+                String.dropLeft (String.length prefix) path
+        in
+        not (String.isEmpty suffix) && not (String.contains ".properties." suffix)
+
+    else
+        False
 
 
 viewBoxString : Float -> Float -> Float -> String
