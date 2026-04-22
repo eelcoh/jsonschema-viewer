@@ -22,11 +22,15 @@ all =
             [ test "horizontal line (same Y)" <|
                 \_ ->
                     connectorPathD ( 100, 14 ) ( 120, 14 )
-                        |> Expect.equal "M 100 14 C 110 14 110 14 120 14"
-            , test "diagonal bezier (different Y)" <|
+                        |> Expect.equal "M 100 14 H 120"
+            , test "elbow down (different Y)" <|
                 \_ ->
                     connectorPathD ( 0, 14 ) ( 20, 52 )
-                        |> Expect.equal "M 0 14 C 10 14 10 52 20 52"
+                        |> Expect.equal "M 0 14 H 7 Q 10 14 10 17 V 49 Q 10 52 13 52 H 20"
+            , test "elbow up (end above start)" <|
+                \_ ->
+                    connectorPathD ( 0, 52 ) ( 20, 14 )
+                        |> Expect.equal "M 0 52 H 7 Q 10 52 10 49 V 17 Q 10 14 13 14 H 20"
             ]
         , describe "extractRefName"
             [ test "strips #/definitions/ prefix" <|

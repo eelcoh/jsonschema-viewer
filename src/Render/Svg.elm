@@ -69,7 +69,34 @@ iconSize =
 
 hSpace : Float
 hSpace =
-    8
+    24
+
+
+{-| Gap between the icon chamber and the name text inside a pill.
+Kept separate from `hSpace` so connector lengths are unaffected.
+-}
+iconTextGap : Float
+iconTextGap =
+    12
+
+
+{-| Font stack for all SVG text. Consolas is the primary choice because
+it ships with Microsoft Office on both Windows and macOS, so the exported
+SVG renders faithfully when embedded in PowerPoint.
+-}
+svgFontFamily : String
+svgFontFamily =
+    "Consolas, 'Menlo', 'DM Mono', 'Courier New', ui-monospace, monospace"
+
+
+{-| Corner radius for connector elbows. Mirrors the pill corner radius
+(`rx="3"` on `iconRect`) so bends and pills feel like the same language.
+`hSpace` must leave at least `2 * connectorCornerR` of horizontal room
+for the two corners.
+-}
+connectorCornerR : Float
+connectorCornerR =
+    3
 
 
 fontSize : Float
@@ -107,7 +134,8 @@ view toggleMsg hoverMsg unhoverMsg collapsedNodes defs schema =
             viewBoxString w h padding
     in
     Svg.svg
-        [ SvgA.width (String.fromFloat svgW)
+        [ SvgA.id "schema-svg"
+        , SvgA.width (String.fromFloat svgW)
         , SvgA.height (String.fromFloat svgH)
         , SvgA.viewBox vb
         , SvgA.style "display: block;"
@@ -573,7 +601,7 @@ roundRect txt ( x, y ) =
                 |> String.fromFloat
 
         fg =
-            Theme.iconText
+            Theme.dark.iconText
                 |> SvgA.fill
 
         caption c =
@@ -582,10 +610,9 @@ roundRect txt ( x, y ) =
                     [ SvgA.x mt
                     , SvgA.y tt
                     , fg
-                    , SvgA.fontFamily "'DM Mono', ui-monospace, monospace"
+                    , SvgA.fontFamily svgFontFamily
                     , SvgA.fontSize (String.fromFloat fontSize)
                     , SvgA.fontWeight "500"
-                    , SvgA.dominantBaseline "middle"
                     , SvgA.cursor "pointer"
                     ]
             in
@@ -599,8 +626,8 @@ roundRect txt ( x, y ) =
                 , SvgA.y (String.fromFloat y)
                 , SvgA.width wRect
                 , SvgA.height (String.fromFloat pillHeight)
-                , SvgA.fill Theme.iconChipBg
-                , SvgA.stroke Theme.nodeBorder
+                , SvgA.fill Theme.dark.iconChipBg
+                , SvgA.stroke Theme.dark.nodeBorder
                 , SvgA.strokeWidth "1"
                 , SvgA.rx "3"
                 , SvgA.ry "3"
@@ -730,7 +757,7 @@ iconRect icon txt weight isRequired ( x, y ) =
             separatorGraph ( iconW + hSpace, y )
 
         mNameG =
-            Maybe.map (viewNameGraph weight ( separatorW + hSpace, y )) txt
+            Maybe.map (viewNameGraph weight ( separatorW + iconTextGap, y )) txt
 
         ( graphs, rectWidth, iconChamberWidth ) =
             case mNameG of
@@ -764,8 +791,8 @@ iconRect icon txt weight isRequired ( x, y ) =
                  , SvgA.y (String.fromFloat y)
                  , SvgA.width wRect
                  , SvgA.height (String.fromFloat pillHeight)
-                 , SvgA.fill Theme.nodeFill
-                 , SvgA.stroke Theme.nodeBorder
+                 , SvgA.fill Theme.dark.nodeFill
+                 , SvgA.stroke Theme.dark.nodeBorder
                  , SvgA.strokeWidth "1"
                  , SvgA.rx "3"
                  , SvgA.ry "3"
@@ -780,7 +807,7 @@ iconRect icon txt weight isRequired ( x, y ) =
                 , SvgA.y (String.fromFloat y)
                 , SvgA.width (String.fromFloat iconChamberWidth)
                 , SvgA.height (String.fromFloat pillHeight)
-                , SvgA.fill Theme.iconChipBg
+                , SvgA.fill Theme.dark.iconChipBg
                 , SvgA.rx "3"
                 , SvgA.ry "3"
                 ]
@@ -793,7 +820,7 @@ iconRect icon txt weight isRequired ( x, y ) =
                     , SvgA.y (String.fromFloat (y + 1))
                     , SvgA.width "2"
                     , SvgA.height (String.fromFloat (pillHeight - 2))
-                    , SvgA.fill Theme.requiredStrip
+                    , SvgA.fill Theme.dark.requiredStrip
                     , SvgA.rx "1"
                     , SvgA.ry "1"
                     ]
@@ -823,7 +850,7 @@ viewNameGraph weight ( x, y ) name =
             computeTextWidth name
 
         fg =
-            Theme.nodeText
+            Theme.dark.nodeText
                 |> SvgA.fill
 
         caption c =
@@ -832,10 +859,9 @@ viewNameGraph weight ( x, y ) name =
                     [ SvgA.x (String.fromFloat mt)
                     , SvgA.y (String.fromFloat tt)
                     , fg
-                    , SvgA.fontFamily "'DM Mono', ui-monospace, monospace"
+                    , SvgA.fontFamily svgFontFamily
                     , SvgA.fontSize (String.fromFloat fontSize)
                     , SvgA.fontWeight weight
-                    , SvgA.dominantBaseline "middle"
                     , SvgA.cursor "pointer"
                     ]
             in
@@ -870,7 +896,7 @@ separatorGraph ( x, y ) =
                 |> String.fromFloat
 
         strokeColor =
-            Theme.nodeBorderSubtle
+            Theme.dark.nodeBorderSubtle
                 |> SvgA.stroke
 
         strokeWidth =
@@ -909,7 +935,7 @@ iconGraph icon ( x, y ) =
                 ++ ")"
 
         color =
-            Theme.iconText
+            Theme.dark.iconText
 
         graph =
             Svg.g
@@ -1085,11 +1111,10 @@ digitIcon color digit =
         []
     , Svg.text_
         [ SvgA.x "7"
-        , SvgA.y "7"
+        , SvgA.y "9.7"
         , SvgA.textAnchor "middle"
-        , SvgA.dominantBaseline "middle"
         , SvgA.fill color
-        , SvgA.fontFamily "'DM Mono', ui-monospace, monospace"
+        , SvgA.fontFamily svgFontFamily
         , SvgA.fontSize "7.5"
         , SvgA.fontWeight "600"
         ]
@@ -1101,11 +1126,10 @@ customTextIcon : String -> String -> List (Svg msg)
 customTextIcon color txt =
     [ Svg.text_
         [ SvgA.x "7"
-        , SvgA.y "7.5"
+        , SvgA.y "9.85"
         , SvgA.textAnchor "middle"
-        , SvgA.dominantBaseline "middle"
         , SvgA.fill color
-        , SvgA.fontFamily "'DM Mono', ui-monospace, monospace"
+        , SvgA.fontFamily svgFontFamily
         , SvgA.fontSize "6.5"
         , SvgA.fontWeight "500"
         , SvgA.textLength "12"
@@ -1135,40 +1159,80 @@ computeHorizontalText x txt =
     x + (textWidth / 2)
 
 
+{-| Vertical position for SVG `<text>` nodes whose y is treated as the
+alphabetic baseline (the default in every renderer, including PowerPoint).
+We used to rely on `dominantBaseline="middle"`, but PowerPoint ignores that
+attribute and falls back to alphabetic — which rendered the text above the
+pill's vertical centre. Computing the baseline ourselves keeps web + PPT
+in sync. The `0.36 * fontSize` offset approximates half the cap-height so
+the glyph body lands on the pill centre.
+-}
 computeVerticalText : Float -> Float
 computeVerticalText y =
-    y + halfPill + 0.5
+    y + halfPill + (fontSize * 0.36)
 
 
 connectorPathD : Coordinates -> Coordinates -> String
 connectorPathD ( startX, startY ) ( endX, endY ) =
-    let
-        hOffset =
-            (endX - startX) * 0.5
-    in
-    "M "
-        ++ String.fromFloat startX
-        ++ " "
-        ++ String.fromFloat startY
-        ++ " C "
-        ++ String.fromFloat (startX + hOffset)
-        ++ " "
-        ++ String.fromFloat startY
-        ++ " "
-        ++ String.fromFloat (endX - hOffset)
-        ++ " "
-        ++ String.fromFloat endY
-        ++ " "
-        ++ String.fromFloat endX
-        ++ " "
-        ++ String.fromFloat endY
+    if startY == endY then
+        "M "
+            ++ String.fromFloat startX
+            ++ " "
+            ++ String.fromFloat startY
+            ++ " H "
+            ++ String.fromFloat endX
+
+    else
+        let
+            midX =
+                (startX + endX) / 2
+
+            ySign =
+                if endY > startY then
+                    1
+
+                else
+                    -1
+
+            firstCornerY =
+                startY + ySign * connectorCornerR
+
+            secondCornerY =
+                endY - ySign * connectorCornerR
+        in
+        "M "
+            ++ String.fromFloat startX
+            ++ " "
+            ++ String.fromFloat startY
+            ++ " H "
+            ++ String.fromFloat (midX - connectorCornerR)
+            ++ " Q "
+            ++ String.fromFloat midX
+            ++ " "
+            ++ String.fromFloat startY
+            ++ " "
+            ++ String.fromFloat midX
+            ++ " "
+            ++ String.fromFloat firstCornerY
+            ++ " V "
+            ++ String.fromFloat secondCornerY
+            ++ " Q "
+            ++ String.fromFloat midX
+            ++ " "
+            ++ String.fromFloat endY
+            ++ " "
+            ++ String.fromFloat (midX + connectorCornerR)
+            ++ " "
+            ++ String.fromFloat endY
+            ++ " H "
+            ++ String.fromFloat endX
 
 
 connectorPath : Coordinates -> Coordinates -> Svg msg
 connectorPath start end =
     Svg.path
         [ SvgA.d (connectorPathD start end)
-        , SvgA.stroke Theme.connector
+        , SvgA.stroke Theme.dark.connector
         , SvgA.strokeWidth "1"
         , SvgA.strokeOpacity "0.65"
         , SvgA.strokeLinecap "round"
