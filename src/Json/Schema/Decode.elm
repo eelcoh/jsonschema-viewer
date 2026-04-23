@@ -703,22 +703,21 @@ callbackDecoder =
 
 oasCollapsedPathsDecoder : Decoder (Set String)
 oasCollapsedPathsDecoder =
-    combineLists
-        [ collapseForSection "Schemas" schemasNamesDecoder
-        , collapseForSection "Paths" (namesAt [ "paths" ])
-        , collapseForSection "Webhooks" (namesAt [ "webhooks" ])
-        , collapseVerbsForSection "Paths" [ "paths" ]
-        , collapseVerbsForSection "Webhooks" [ "webhooks" ]
-        , collapseForSection "Parameters" (unionNames [ [ "components", "parameters" ], [ "parameters" ] ])
-        , collapseForSection "Request Bodies" (namesAt [ "components", "requestBodies" ])
-        , collapseForSection "Responses" (unionNames [ [ "components", "responses" ], [ "responses" ] ])
-        , collapseForSection "Headers" (namesAt [ "components", "headers" ])
-        , collapseForSection "Security Schemes" (unionNames [ [ "components", "securitySchemes" ], [ "securityDefinitions" ] ])
-        , collapseForSection "Examples" (namesAt [ "components", "examples" ])
-        , collapseForSection "Links" (namesAt [ "components", "links" ])
-        , collapseForSection "Callbacks" (namesAt [ "components", "callbacks" ])
-        ]
-        |> map Set.fromList
+    map2 Set.union
+        (combineLists
+            [ collapseForSection "Schemas" schemasNamesDecoder
+            , collapseForSection "Parameters" (unionNames [ [ "components", "parameters" ], [ "parameters" ] ])
+            , collapseForSection "Request Bodies" (namesAt [ "components", "requestBodies" ])
+            , collapseForSection "Responses" (unionNames [ [ "components", "responses" ], [ "responses" ] ])
+            , collapseForSection "Headers" (namesAt [ "components", "headers" ])
+            , collapseForSection "Security Schemes" (unionNames [ [ "components", "securitySchemes" ], [ "securityDefinitions" ] ])
+            , collapseForSection "Examples" (namesAt [ "components", "examples" ])
+            , collapseForSection "Links" (namesAt [ "components", "links" ])
+            , collapseForSection "Callbacks" (namesAt [ "components", "callbacks" ])
+            ]
+            |> map Set.fromList
+        )
+        endpointsDeepCollapseDecoder
 
 
 collapseForSection : String -> Decoder (List String) -> Decoder (List String)
@@ -727,40 +726,128 @@ collapseForSection sectionName namesDecoder =
         |> map (List.map (\n -> "root.properties." ++ sectionName ++ ".properties." ++ n))
 
 
-{-| Collapse each operation (verb) under each path item so that opening a
-path reveals the verb pills as closed — the viewer stops at the "top level
-of the endpoints" rather than exploding the full parameters/requestBody/
-responses tree in one click.
+{-| Deep-collapse every descendant inside the `Paths` and `Webhooks`
+sections so that expanding an endpoint reveals exactly one more level —
+the URL pill opens to show verbs (collapsed), the verb opens to show
+`parameters` / `requestBody` / `responses` (collapsed), and so on all
+the way down. Without this, opening a single verb explodes its whole
+parameter/response tree (including inlined `$ref` targets) in one click.
 -}
-collapseVerbsForSection : String -> List String -> Decoder (List String)
-collapseVerbsForSection sectionName atPath =
-    let
-        knownVerbs =
-            [ "get", "put", "post", "delete", "options", "head", "patch", "trace" ]
+endpointsDeepCollapseDecoder : Decoder (Set String)
+endpointsDeepCollapseDecoder =
+    openApiDecoder
+        |> map (\{ schema } -> deepCollapseInEndpointSections schema)
 
-        verbKeys : Decoder (List String)
-        verbKeys =
-            keyValuePairs value
-                |> map (List.map Tuple.first >> List.filter (\k -> List.member k knownVerbs))
-    in
-    namedPairsAt atPath verbKeys
-        |> map
-            (\pairs ->
-                List.concatMap
-                    (\( url, verbs ) ->
-                        List.map
-                            (\v ->
-                                "root.properties."
-                                    ++ sectionName
-                                    ++ ".properties."
-                                    ++ url
-                                    ++ ".properties."
-                                    ++ v
-                            )
-                            verbs
-                    )
-                    pairs
+
+deepCollapseInEndpointSections : Schema -> Set String
+deepCollapseInEndpointSections rootSchema =
+    case rootSchema of
+        Schema.Object { properties } ->
+            List.concatMap
+                (\prop ->
+                    let
+                        ( name, child ) =
+                            propNameSchema prop
+                    in
+                    if name == "Paths" || name == "Webhooks" then
+                        allExpandablePathsUnder ("root.properties." ++ name) child
+
+                    else
+                        []
+                )
+                properties
+                |> Set.fromList
+
+        _ ->
+            Set.empty
+
+
+propNameSchema : Schema.ObjectProperty -> ( String, Schema )
+propNameSchema prop =
+    case prop of
+        Schema.Required n s ->
+            ( n, s )
+
+        Schema.Optional n s ->
+            ( n, s )
+
+
+{-| Walk a schema and return every collapsible descendant path. Assumes
+the Object/Array/combinator path scheme used by Render.Svg. Does not
+recurse through `$ref` targets — the ref pill itself is added and
+clicking it still expands the target inline.
+-}
+allExpandablePathsUnder : String -> Schema -> List String
+allExpandablePathsUnder basePath schema =
+    case schema of
+        Schema.Object { properties, combinator } ->
+            List.concatMap
+                (\prop ->
+                    let
+                        ( name, child ) =
+                            propNameSchema prop
+
+                        childPath =
+                            basePath ++ ".properties." ++ name
+                    in
+                    childPath :: allExpandablePathsUnder childPath child
+                )
+                properties
+                ++ combinatorPaths basePath combinator
+
+        Schema.Array { items, combinator } ->
+            (case items of
+                Just s ->
+                    let
+                        itemPath =
+                            basePath ++ ".items"
+                    in
+                    itemPath :: allExpandablePathsUnder itemPath s
+
+                Nothing ->
+                    []
             )
+                ++ combinatorPaths basePath combinator
+
+        Schema.OneOf { subSchemas } ->
+            multiPaths basePath subSchemas
+
+        Schema.AnyOf { subSchemas } ->
+            multiPaths basePath subSchemas
+
+        Schema.AllOf { subSchemas } ->
+            multiPaths basePath subSchemas
+
+        _ ->
+            []
+
+
+multiPaths : String -> List Schema -> List String
+multiPaths basePath subs =
+    List.indexedMap
+        (\i s ->
+            let
+                itemPath =
+                    basePath ++ "." ++ String.fromInt i
+            in
+            itemPath :: allExpandablePathsUnder itemPath s
+        )
+        subs
+        |> List.concat
+
+
+combinatorPaths : String -> Maybe ( Schema.CombinatorKind, List Schema ) -> List String
+combinatorPaths basePath m =
+    case m of
+        Nothing ->
+            []
+
+        Just ( _, subs ) ->
+            let
+                combPath =
+                    basePath ++ ".combinator"
+            in
+            combPath :: multiPaths combPath subs
 
 
 schemasNamesDecoder : Decoder (List String)

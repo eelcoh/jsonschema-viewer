@@ -1358,11 +1358,11 @@ connectorDownThenRight ( startX, startY ) ( endX, endY ) =
         []
 
 
-{-| True for the four synthetic OpenAPI nodes that should stack children
-vertically below rather than to the right: the `Paths` section, each path
-item, the `Webhooks` section, and each webhook item. Children of verbs
-(parameters / requestBody / responses) and everything else resume the
-normal right-extending layout.
+{-| True for the synthetic OpenAPI nodes that should stack children
+vertically below rather than to the right: the `Paths` / `Webhooks` /
+`Schemas` sections, and each of their direct children (each path item,
+webhook item, or named schema). Children of verbs and everything deeper
+resume the normal right-extending layout.
 -}
 shouldRenderChildrenBelow : String -> Bool
 shouldRenderChildrenBelow path =
@@ -1370,8 +1370,11 @@ shouldRenderChildrenBelow path =
         == "root.properties.Paths"
         || path
         == "root.properties.Webhooks"
+        || path
+        == "root.properties.Schemas"
         || isPathItemPath "Paths" path
         || isPathItemPath "Webhooks" path
+        || isPathItemPath "Schemas" path
 
 
 isPathItemPath : String -> String -> Bool
