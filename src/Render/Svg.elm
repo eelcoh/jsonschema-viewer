@@ -1359,22 +1359,39 @@ connectorDownThenRight ( startX, startY ) ( endX, endY ) =
 
 
 {-| True for the synthetic OpenAPI nodes that should stack children
-vertically below rather than to the right: the `Paths` / `Webhooks` /
-`Schemas` sections, and each of their direct children (each path item,
-webhook item, or named schema). Children of verbs and everything deeper
-resume the normal right-extending layout.
+vertically below rather than to the right: the top-level component
+sections (`Paths`, `Schemas`, `Security Schemes`, …) and each of their
+direct children. Anything deeper resumes the normal right-extending
+layout.
+
+Kept as an explicit allowlist — generalising to "any `root.properties.X`"
+would incorrectly flip top-level properties of a plain (non-OpenAPI)
+JSON Schema to the vertical layout.
 -}
+oasVerticalSections : List String
+oasVerticalSections =
+    [ "Paths"
+    , "Webhooks"
+    , "Schemas"
+    , "Parameters"
+    , "Request Bodies"
+    , "Responses"
+    , "Headers"
+    , "Security Schemes"
+    , "Examples"
+    , "Links"
+    , "Callbacks"
+    ]
+
+
 shouldRenderChildrenBelow : String -> Bool
 shouldRenderChildrenBelow path =
-    path
-        == "root.properties.Paths"
-        || path
-        == "root.properties.Webhooks"
-        || path
-        == "root.properties.Schemas"
-        || isPathItemPath "Paths" path
-        || isPathItemPath "Webhooks" path
-        || isPathItemPath "Schemas" path
+    let
+        isSection section =
+            path == "root.properties." ++ section
+    in
+    List.any isSection oasVerticalSections
+        || List.any (\section -> isPathItemPath section path) oasVerticalSections
 
 
 isPathItemPath : String -> String -> Bool
